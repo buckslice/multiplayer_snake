@@ -1,0 +1,10 @@
+*
+!*.gitignore
+!*.cpp
+!*.hpp
+!*.h
+!*.sln
+!*.vcxproj
+!*.vcxproj.filters
+!libs/
+!libs/**
