@@ -5,6 +5,8 @@
 
 class Player {
 public:
+    Player(bool wasd, int id);
+
     point getPos();
     point getMove();
 
@@ -16,9 +18,11 @@ public:
     void grow(int amount);
 
     bool dead;
-
+    int id;
 private:
     std::vector<point> points;
     point dir, inone, intwo;
     int growth;
+
+    int inputs[4];
 };

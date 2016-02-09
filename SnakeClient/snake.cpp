@@ -63,7 +63,6 @@ void Snake::start() {
     glDeleteShader(fragmentShader);
 
     map.generate((int)(WIDTH / TILE), (int)(HEIGHT / TILE));
-
     generateTriangles(tris);
 
     GLuint EBO;
@@ -87,8 +86,20 @@ void Snake::start() {
     // wireframe mode
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    player.spawn(map.getW() / 2, 4, 0, 1);
-    map.setTile(player.getPos(), PLAYER);
+    int ids = PLAYER;
+    players.push_back(Player(true, ids++));
+    players.push_back(Player(false, ids++));
+
+    std::vector<point> spawns;
+    spawns.push_back({ 4, 4 });
+    spawns.push_back({ map.getW() - 4, 4 });
+
+    for (size_t i = 0; i < players.size(); ++i) {
+        point p = spawns[i];
+        players[i].spawn(p.x,p.y, 0, 1);
+        map.setTile(players[i].getPos(), players[i].id);
+    }
+
     map.spawnRandom(FOOD);
     gameTime = -1.0;
     render();
@@ -103,7 +114,9 @@ void Snake::start() {
             running = false;
         }
 
-        player.checkInput();
+        for (size_t i = 0; i < players.size(); ++i) {
+            players[i].checkInput();
+        }
 
         double now = glfwGetTime();
         double delta = now - lastTime;
@@ -116,34 +129,46 @@ void Snake::start() {
             glClearColor(0.05f, 0.1f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            // figure out dir
-            point mv = player.getMove();
-            if (map.isWalkable(mv.x, mv.y)) {   // valid move
-                point oldend = player.move();
-                map.setTile(oldend, 0);
-                map.setTile(player.getPos(), PLAYER);
-            } else if (map.getTile(mv.x, mv.y) == FOOD) {   // ran into food
-                point oldend = player.move();
-                map.setTile(oldend, 0);
-                map.setTile(player.getPos(), PLAYER);
-                player.grow(3);
-                map.spawnRandom(FOOD);
-            } else {    // hit wall or part of snake
-                player.dead = true;
-            }
-            if (player.dead) {
-                gameTime = -2.0;
-            } else {
-                gameTime = 0.0;
+            for (size_t i = 0; i < players.size(); ++i) {
+                // figure out dir
+                Player& p = players[i];
+                point mv = p.getMove();
+                if (map.isWalkable(mv.x, mv.y)) {   // valid move
+                    point oldend = p.move();
+                    map.setTile(oldend, 0);
+                    map.setTile(p.getPos(), p.id);
+                } else if (map.getTile(mv.x, mv.y) == FOOD) {   // ran into food
+                    point oldend = p.move();
+                    map.setTile(oldend, 0);
+                    map.setTile(p.getPos(), p.id);
+                    p.grow(3);
+                    map.spawnRandom(FOOD);
+                } else {    // hit wall or part of snake
+                    p.dead = true;
+                }
+                if (p.dead) {
+                    gameTime = -2.0;
+                    break;
+                } else {
+                    gameTime = 0.0;
+                }
             }
 
             render();
         }
 
-        if (player.dead && gameTime > -1.0 ) {
+        bool playerIsDead = false;
+        for (size_t i = 0; i < players.size(); ++i) {
+            playerIsDead = playerIsDead || players[i].dead;
+        }
+
+        if (playerIsDead && gameTime > -1.0) {
             map.generate((int)(WIDTH / TILE), (int)(HEIGHT / TILE));
-            player.spawn(map.getW() / 2, 4, 0, 1);
-            map.setTile(player.getPos(), PLAYER);
+            for (size_t i = 0; i < players.size(); ++i) {
+                point p = spawns[i];
+                players[i].spawn(p.x, p.y, 0, 1);
+                map.setTile(players[i].getPos(), players[i].id);
+            }
             map.spawnRandom(FOOD);
             render();
         }
@@ -189,18 +214,16 @@ void Snake::generateVertices(std::vector<CVertex>& verts) {
             case WALL:
                 r = 0.05f; g = 0.1f, b = 0.2f;
                 break;
-            case PLAYER:
-                if (gameTime < 0.0) {
-                    r = 1.0f; g = 0.0f; b = 0.0f;
-                } else {
-                    r = 1.0f; g = 0.5f; b = 0.2f;
-                }
-                break;
             case FOOD:
                 r = 0.0f; g = 1.0f; b = 0.0f;
                 break;
             default:
-                r = g = b = 1.0f;
+                int index = id - PLAYER;
+                if (gameTime < 0.0 && players[index].dead) {
+                    r = 1.0f; g = 0.0f; b = 0.0f;
+                } else {
+                    r = 1.0f; g = 0.5f + 0.5f * index; b = 0.2f;
+                }
                 break;
             }
 

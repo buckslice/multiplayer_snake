@@ -17,13 +17,13 @@ public:
 
     static const GLuint GROUND = 0;
     static const GLuint WALL = 1;
-    static const GLuint PLAYER = 2;
-    static const GLuint FOOD = 3;
+    static const GLuint FOOD = 2;
+    static const GLuint PLAYER = 3;
 private:
     GLFWwindow* window;
 
     Map map;
-    Player player;
+    std::vector<Player> players;
 
     void start();
     void render();

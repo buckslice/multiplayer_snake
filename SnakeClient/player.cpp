@@ -1,29 +1,45 @@
 #include "player.h"
 #include "input.h"
 
+Player::Player(bool wasd, int id): id { id } {
+
+    if (!wasd) {
+        inputs[0] = GLFW_KEY_RIGHT;
+        inputs[1] = GLFW_KEY_LEFT;
+        inputs[2] = GLFW_KEY_UP;
+        inputs[3] = GLFW_KEY_DOWN;
+    } else {
+        inputs[0] = GLFW_KEY_D;
+        inputs[1] = GLFW_KEY_A;
+        inputs[2] = GLFW_KEY_W;
+        inputs[3] = GLFW_KEY_S;
+    }
+
+}
+
 void Player::checkInput() {
-    if (Input::justPressed(GLFW_KEY_LEFT) || Input::justPressed(GLFW_KEY_A)) {
+    if (Input::justPressed(inputs[1])) {
         if (dir.x == 0) {
             inone = { -1,0 };
         } else if (inone.y != 0) {
             intwo = { -1,0 };
         }
     }
-    if (Input::justPressed(GLFW_KEY_RIGHT) || Input::justPressed(GLFW_KEY_D)) {
+    if (Input::justPressed(inputs[0])) {
         if (dir.x == 0) {
             inone = { 1,0 };
         } else if (inone.y != 0) {
             intwo = { 1,0 };
         }
     }
-    if (Input::justPressed(GLFW_KEY_DOWN) || Input::justPressed(GLFW_KEY_S)) {
+    if (Input::justPressed(inputs[3])) {
         if (dir.y == 0) {
             inone = { 0,-1 };
         } else if (inone.x != 0) {
             intwo = { 0,-1 };
         }
     }
-    if (Input::justPressed(GLFW_KEY_UP) || Input::justPressed(GLFW_KEY_W)) {
+    if (Input::justPressed(inputs[2])) {
         if (dir.y == 0) {
             inone = { 0,1 };
         } else if (inone.x != 0) {
