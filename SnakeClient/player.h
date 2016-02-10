@@ -1,5 +1,5 @@
 #pragma once
-#include <GLFW/glfw3.h>
+#include "SFML/Graphics.hpp"
 #include "point.h"
 #include <vector>
 
@@ -18,7 +18,10 @@ public:
     void grow(int amount);
 
     bool dead;
-    int id;
+    int id;     // tile id starting at 3
+    int score;
+
+    sf::Color color;
 private:
     std::vector<point> points;
     point dir, inone, intwo;

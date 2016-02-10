@@ -1,10 +1,8 @@
 #pragma once
-#include <GLFW/glfw3.h>
+#include <SFML/Window/Keyboard.hpp>
 
 class Input {
 public:
-
-    static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 
     static void update();
 

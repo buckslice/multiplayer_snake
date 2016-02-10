@@ -1,6 +1,6 @@
 #pragma once
 
-struct point {
+struct point {  // should prob just switch to sf::Vector2i eventually
     int x, y;
     struct point& operator+=(const point& p) { x += p.x; y += p.y; return *this; }
     friend point operator+(const point& p1, const point& p2) {

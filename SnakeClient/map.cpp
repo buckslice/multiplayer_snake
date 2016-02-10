@@ -5,6 +5,11 @@ std::random_device rd;
 std::mt19937 rng(rd());
 
 Map::Map() {
+    pos = { 0,0 };
+}
+
+Map::Map(int w, int h) :w{ w }, h{ h } {
+    pos = { 0,0 };
 }
 
 int Map::getW() {
@@ -51,9 +56,7 @@ void Map::spawnRandom(int id) {
     setTile(open[uni(rng)], id);
 }
 
-void Map::generate(int w, int h) {
-    this->w = w;
-    this->h = h;
+void Map::generate() {
     map.clear();
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {

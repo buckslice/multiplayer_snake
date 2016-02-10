@@ -1,11 +1,11 @@
 #pragma once
 #include <vector>
-#include <GL/glew.h>
 #include "point.h"
 
 class Map {
 public:
     Map();
+    Map(int w, int h);
 
     int getTile(int x, int y);
 
@@ -14,16 +14,14 @@ public:
 
     bool isWalkable(int x, int y);
 
-    void generate(int w, int h);
+    void generate();
 
     void spawnRandom(int id);
 
     int getW();
     int getH();
 
-    //static const GLuint GROUND = 0;
-    //static const GLuint WALL = 1;
-    //static const GLuint FOOD = 2;
+    point pos;
 
 private:
     std::vector<int> map;

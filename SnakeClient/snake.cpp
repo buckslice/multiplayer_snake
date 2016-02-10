@@ -1,134 +1,87 @@
 
-#define GLEW_STATIC
-#include <GL/glew.h>
-
-#include <GLFW/glfw3.h>
+#include <SFML/Window.hpp>
+#include <SFML/Graphics.hpp>
 #include <iostream>
+#include <sstream>
 
 #include "snake.h"
 #include "input.h"
 
 Snake::Snake() {
+    init();
     start();
 }
 
+void Snake::init() {
+    // build window
+    sf::ContextSettings settings;
+    settings.depthBits = 24;
+    settings.stencilBits = 8;
+    settings.antialiasingLevel = 2;
+    window = new sf::RenderWindow(sf::VideoMode(WIDTH, HEIGHT), "Snake!", sf::Style::Default, settings);
+    window->setFramerateLimit(60);
+
+    if (!font.loadFromFile("OCRAEXT.TTF")) {
+        std::cout << "FONT COULDN'T LOAD" << std::endl;
+    }
+}
+
 void Snake::start() {
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    map = Map((int)(WIDTH / TILE), (int)(HEIGHT / TILE) - 1);
+    map.pos = { 0,(int)TILE };
+    map.generate();
 
-    window = glfwCreateWindow(WIDTH, HEIGHT, "Snake!", nullptr, nullptr);
-    glfwMakeContextCurrent(window);
+    text.setFont(font);
+    text.setCharacterSize(30);
 
-    glfwSetKeyCallback(window, Input::key_callback);
-
-    glewExperimental = GL_TRUE;
-    glewInit();
-
-    glViewport(0, 0, WIDTH, HEIGHT);
-
-    // Vertex shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vert, NULL);
-    glCompileShader(vertexShader);
-    GLint success;
-    GLchar infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    // Fragment shader
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &frag, NULL);
-    glCompileShader(fragmentShader);
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    // Link shaders
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    map.generate((int)(WIDTH / TILE), (int)(HEIGHT / TILE));
-    generateTriangles(tris);
-
-    GLuint EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, tris.size()*sizeof(GLuint), &tris[0], GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(CVertex), (GLvoid*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(CVertex), (GLvoid*)(2 * sizeof(GLfloat)));
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    // wireframe mode
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
+    // set up players
     int ids = PLAYER;
     players.push_back(Player(true, ids++));
     players.push_back(Player(false, ids++));
 
-    std::vector<point> spawns;
-    spawns.push_back({ 4, 4 });
-    spawns.push_back({ map.getW() - 4, 4 });
+    // set up player colors
+    players[0].color = sf::Color(255, 127, 51);
+    players[1].color = sf::Color(255, 255, 51);
 
-    for (size_t i = 0; i < players.size(); ++i) {
-        point p = spawns[i];
-        players[i].spawn(p.x,p.y, 0, 1);
-        map.setTile(players[i].getPos(), players[i].id);
-    }
-
+    spawnPlayers();
     map.spawnRandom(FOOD);
-    gameTime = -1.0;
-    render();
 
-    double lastTime = glfwGetTime();
+    gameTime = -1.0f;
+    render();
+    winner = 0;
+    sf::Clock frameTime;
     bool running = true;
     while (running) {
-        Input::update();
-        glfwPollEvents();
+        // increment gameTime
+        float delta = frameTime.restart().asSeconds();
+        gameTime += delta;
 
-        if (glfwWindowShouldClose(window) || Input::justPressed(GLFW_KEY_ESCAPE)) {
+        sf::Event e;
+        while (window->pollEvent(e)) {
+            switch (e.type) {
+            case sf::Event::Closed:
+                running = false;
+                break;
+            default:
+                break;
+            }
+        }
+
+        // update input arrays
+        Input::update();
+
+        if (Input::justPressed(sf::Keyboard::Key::Escape)) {
             running = false;
         }
 
+        // get input from players
         for (size_t i = 0; i < players.size(); ++i) {
             players[i].checkInput();
         }
 
-        double now = glfwGetTime();
-        double delta = now - lastTime;
-        lastTime = now;
-        gameTime += delta;
-
-        double gameTick = 0.1;  // snake moves 10 times a second
+        float gameTick = 0.1f;  // snake moves 10 times a second
         if (gameTime >= gameTick) {
-            // do game tick
-            glClearColor(0.05f, 0.1f, 0.2f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
-
+            std::string txt;
             for (size_t i = 0; i < players.size(); ++i) {
                 // figure out dir
                 Player& p = players[i];
@@ -142,115 +95,163 @@ void Snake::start() {
                     map.setTile(oldend, 0);
                     map.setTile(p.getPos(), p.id);
                     p.grow(3);
+                    p.score++;
                     map.spawnRandom(FOOD);
-                } else {    // hit wall or part of snake
+                } else {    // hit wall or part of a snake so this player dies!
                     p.dead = true;
                 }
-                if (p.dead) {
-                    gameTime = -2.0;
-                    break;
-                } else {
-                    gameTime = 0.0;
-                }
+            }
+
+            winner = getWinner();
+            // if game ended then restart
+            if (winner != 0) {
+                gameTime = -2.0f;
+            } else {    // else just zero it cuz games still going
+                gameTime = 0.0f;
             }
 
             render();
         }
 
-        bool playerIsDead = false;
-        for (size_t i = 0; i < players.size(); ++i) {
-            playerIsDead = playerIsDead || players[i].dead;
-        }
-
-        if (playerIsDead && gameTime > -1.0) {
-            map.generate((int)(WIDTH / TILE), (int)(HEIGHT / TILE));
-            for (size_t i = 0; i < players.size(); ++i) {
-                point p = spawns[i];
-                players[i].spawn(p.x, p.y, 0, 1);
-                map.setTile(players[i].getPos(), players[i].id);
-            }
+        // reset game after 1 second
+        if (winner != 0 && gameTime > -1.0f) {
+            winner = 0;
+            map.generate();
+            spawnPlayers();
             map.spawnRandom(FOOD);
             render();
         }
 
     }
 
-    // shut down
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
-    glfwTerminate();
+    // cleanup
+    delete window;
+}
+
+// return 0 means game still going
+// return -1 means draw
+// return > 0 means player n won
+int Snake::getWinner() {
+    bool oneAlive = false;
+    int winner = 0;
+    for (size_t i = 0; i < players.size(); ++i) {
+        if (!players[i].dead) {
+            if (oneAlive) { // if another player has been found alive then return -1 cuz game isnt over
+                return 0;
+            }
+            winner = i + 1;
+            oneAlive = true;
+        }
+    }
+    if (!oneAlive) {  // this means it was a draw
+        return -1;
+    }
+
+    return winner;
+}
+
+void Snake::spawnPlayers() {
+    for (size_t i = 0; i < players.size(); ++i) {
+        Player& p = players[i];
+        switch (p.id - PLAYER) {
+        case 0:
+            p.spawn(4, 4, 0, 1);
+            break;
+        case 1:
+            p.spawn(map.getW() - 5, map.getH() - 5, 0, -1);
+            break;
+        default:
+            std::cout << "spawning player at default spawn" << std::endl;
+            p.spawn(map.getW() / 2, map.getH() / 2, 1, 0);
+            break;
+        }
+        map.setTile(p.getPos(), p.id);
+    }
 }
 
 void Snake::render() {
+    window->clear(sf::Color(12, 26, 51));
+
+    sf::VertexArray verts;
+    verts.setPrimitiveType(sf::PrimitiveType::Quads);
+
     generateVertices(verts);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(CVertex), &verts[0], GL_STREAM_DRAW);
 
-    glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, tris.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    window->draw(verts);
 
-    glfwSwapBuffers(window);
+    for (size_t i = 0; i < players.size(); ++i) {
+        std::ostringstream oss;
+
+        Player& p = players[i];
+        oss << "P " << p.id - PLAYER + 1 << " : " << p.score << " ";
+        text.setString(oss.str());
+        text.setColor(p.color);
+        if (i == 0) {
+            text.setPosition(sf::Vector2f(0.0f, 0.0f));
+        } else {
+            sf::FloatRect fr = text.getLocalBounds();
+            text.setPosition(sf::Vector2f(WIDTH - fr.width, 0.0f));
+        }
+        window->draw(text);
+    }
+
+    text.setColor(sf::Color(200, 255, 255));
+    std::ostringstream oss;
+    if (gameTime < -1.0f) {
+        if (winner < 0) {
+            oss << "DRAW!";
+        } else {
+            oss << "Player " << winner << " wins!";
+        }
+    } else if (gameTime < 0.0f) {
+        oss << "GET READY";
+    } else {
+        oss << "SNAKE!";
+    }
+    text.setString(oss.str());
+    sf::FloatRect fr = text.getLocalBounds();
+    text.setPosition(sf::Vector2f(WIDTH / 2 - fr.width / 2.0f, 0.0f));
+    window->draw(text);
+
+    window->display();
 }
 
-void Snake::generateVertices(std::vector<CVertex>& verts) {
-    verts.clear();
+void Snake::generateVertices(sf::VertexArray& verts) {
     for (int y = 0; y < map.getH(); ++y) {
         for (int x = 0; x < map.getW(); ++x) {
             int id = map.getTile(x, y);
 
-            float x0 = x * TILE;
-            float y0 = y * TILE;
-            float x1 = (x + 1) * TILE;
-            float y1 = (y + 1) * TILE;
+            float x0 = x * TILE + map.pos.x;
+            float y0 = y * TILE + map.pos.y;
+            float x1 = (x + 1) * TILE + map.pos.x;
+            float y1 = (y + 1) * TILE + map.pos.y;
 
-            float r, g, b;
+            sf::Color color;
             switch (id) {
             case GROUND:
-                r = 0.2f; g = 0.3f, b = 0.3f;
+                color = sf::Color(51, 77, 77);
                 break;
             case WALL:
-                r = 0.05f; g = 0.1f, b = 0.2f;
+                color = sf::Color(12, 26, 51);
                 break;
             case FOOD:
-                r = 0.0f; g = 1.0f; b = 0.0f;
+                color = sf::Color(0, 255, 0);
                 break;
             default:
-                int index = id - PLAYER;
-                if (gameTime < 0.0 && players[index].dead) {
-                    r = 1.0f; g = 0.0f; b = 0.0f;
+                Player& p = players[id - PLAYER];
+                if (gameTime < 0.0 && p.dead) {
+                    color = sf::Color(255, 0, 0);
                 } else {
-                    r = 1.0f; g = 0.5f + 0.5f * index; b = 0.2f;
+                    color = p.color;
                 }
                 break;
             }
 
-            verts.push_back(CVertex{ x0,y0,r,g,b });
-            verts.push_back(CVertex{ x0,y1,r,g,b });
-            verts.push_back(CVertex{ x1,y1,r,g,b });
-            verts.push_back(CVertex{ x1,y0,r,g,b });
+            verts.append(sf::Vertex(sf::Vector2f(x0, y0), color));
+            verts.append(sf::Vertex(sf::Vector2f(x1, y0), color));
+            verts.append(sf::Vertex(sf::Vector2f(x1, y1), color));
+            verts.append(sf::Vertex(sf::Vector2f(x0, y1), color));
         }
-    }
-    // weird hack to bypass need for orthographic projection
-    for (size_t i = 0; i < verts.size(); ++i) {
-        verts[i].x = (verts[i].x - WIDTH / 2.0f) / (WIDTH / 2.0f);
-        verts[i].y = (verts[i].y - HEIGHT / 2.0f) / (HEIGHT / 2.0f);
-    }
-}
-
-void Snake::generateTriangles(std::vector<GLuint>& tris) {
-    tris.clear();
-    GLuint t = 0;
-    for (int i = 0; i < map.getW() * map.getH(); ++i) {
-        tris.push_back(t);
-        tris.push_back(t + 1);
-        tris.push_back(t + 2);
-        tris.push_back(t + 2);
-        tris.push_back(t + 3);
-        tris.push_back(t);
-        t += 4;
     }
 }
 

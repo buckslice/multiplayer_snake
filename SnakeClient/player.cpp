@@ -1,18 +1,18 @@
 #include "player.h"
 #include "input.h"
 
-Player::Player(bool wasd, int id): id { id } {
+Player::Player(bool wasd, int id) : id{ id } {
 
     if (!wasd) {
-        inputs[0] = GLFW_KEY_RIGHT;
-        inputs[1] = GLFW_KEY_LEFT;
-        inputs[2] = GLFW_KEY_UP;
-        inputs[3] = GLFW_KEY_DOWN;
+        inputs[0] = sf::Keyboard::Key::Right;
+        inputs[1] = sf::Keyboard::Key::Left;
+        inputs[2] = sf::Keyboard::Key::Up;
+        inputs[3] = sf::Keyboard::Key::Down;
     } else {
-        inputs[0] = GLFW_KEY_D;
-        inputs[1] = GLFW_KEY_A;
-        inputs[2] = GLFW_KEY_W;
-        inputs[3] = GLFW_KEY_S;
+        inputs[0] = sf::Keyboard::Key::D;
+        inputs[1] = sf::Keyboard::Key::A;
+        inputs[2] = sf::Keyboard::Key::W;
+        inputs[3] = sf::Keyboard::Key::S;
     }
 
 }
@@ -34,16 +34,16 @@ void Player::checkInput() {
     }
     if (Input::justPressed(inputs[3])) {
         if (dir.y == 0) {
-            inone = { 0,-1 };
+            inone = { 0,1 };
         } else if (inone.x != 0) {
-            intwo = { 0,-1 };
+            intwo = { 0,1 };
         }
     }
     if (Input::justPressed(inputs[2])) {
         if (dir.y == 0) {
-            inone = { 0,1 };
+            inone = { 0,-1 };
         } else if (inone.x != 0) {
-            intwo = { 0,1 };
+            intwo = { 0,-1 };
         }
     }
 }
@@ -55,6 +55,7 @@ void Player::spawn(int x, int y, int dx, int dy) {
     inone = { 0,0 };
     intwo = { 0,0 };
     growth = 0;
+    score = 0;
     dead = false;
 }
 
