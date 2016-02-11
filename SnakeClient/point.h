@@ -1,3 +1,8 @@
+// ICS 167 Multiplayer Snake Project by:
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// John Collins     75665849    jfcollin@uci.edu
+
 #pragma once
 
 struct point {  // should prob just switch to sf::Vector2i eventually

@@ -1,3 +1,7 @@
+// ICS 167 Multiplayer Snake Project by:
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// John Collins     75665849    jfcollin@uci.edu
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
@@ -13,6 +17,21 @@ Snake::Snake() {
 }
 
 void Snake::init() {
+    int port;
+    std::cout << "Please set server port: ";
+    std::cin >> port;
+
+    std::string ip = "127.0.0.1";
+    sf::Socket::Status status = socket.connect(ip, port);
+    if (status != sf::Socket::Done) {
+        std::cout << "SOCKET FAILED TO CONNECT!" << std::endl;
+    }
+
+    char data[] = { "hello, client connected!" };
+
+    socket.send(data, sizeof(data)/sizeof(char));
+    socket.setBlocking(false);
+
     // build window
     sf::ContextSettings settings;
     settings.depthBits = 24;
@@ -95,7 +114,10 @@ void Snake::start() {
                     map.setTile(oldend, 0);
                     map.setTile(p.getPos(), p.id);
                     p.grow(3);
-                    p.score++;
+                    //p.score++;
+
+                    sendData(i + 1);
+
                     map.spawnRandom(FOOD);
                 } else {    // hit wall or part of a snake so this player dies!
                     p.dead = true;
@@ -116,6 +138,7 @@ void Snake::start() {
         // reset game after 1 second
         if (winner != 0 && gameTime > -1.0f) {
             winner = 0;
+            sendData('0');
             map.generate();
             spawnPlayers();
             map.spawnRandom(FOOD);
@@ -124,8 +147,19 @@ void Snake::start() {
 
     }
 
+    socket.disconnect();
+
     // cleanup
     delete window;
+}
+
+template <typename T>
+void Snake::sendData(T data) {
+    std::ostringstream oss;
+    oss << data;
+    std::string s = oss.str();
+    size_t len;
+    socket.send(s.c_str(), s.length(), len);
 }
 
 // return 0 means game still going
@@ -169,6 +203,33 @@ void Snake::spawnPlayers() {
     }
 }
 
+void Snake::clearMessage() {
+    int len = sizeof(in) / sizeof(char);
+    for (int i = 0; i < len; ++i) {
+        in[i] = '\0';
+    }
+}
+
+void Snake::getMessage() {
+    // check for scores from server
+    if (socket.receive(in, sizeof(in), received) == sf::Socket::NotReady) {
+        //std::cout << "discarding partial message" << std::endl;
+        clearMessage();
+    }
+
+    std::string msg = std::string(in);
+    if (msg == "") {
+        return;
+    }
+
+    for (size_t i = 0; i < msg.size(); ++i) {
+        players[i].score = msg.at(i) - '0';
+    }
+
+    clearMessage();
+
+}
+
 void Snake::render() {
     window->clear(sf::Color(12, 26, 51));
 
@@ -178,6 +239,8 @@ void Snake::render() {
     generateVertices(verts);
 
     window->draw(verts);
+
+    getMessage();
 
     for (size_t i = 0; i < players.size(); ++i) {
         std::ostringstream oss;
@@ -255,7 +318,8 @@ void Snake::generateVertices(sf::VertexArray& verts) {
     }
 }
 
-int main() {
+int main() {    
+
     Snake game;
     return 0;
 }

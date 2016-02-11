@@ -1,6 +1,12 @@
+// ICS 167 Multiplayer Snake Project by:
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// John Collins     75665849    jfcollin@uci.edu
+
 #pragma once
 #include "map.h"
 #include "player.h"
+#include <SFML/Network.hpp>
 
 class Snake {
 public:
@@ -16,11 +22,17 @@ public:
     static const int PLAYER = 3;
 private:
     sf::RenderWindow* window;
+
+    sf::TcpSocket socket;
+
     Map map;
     sf::Font font;
     sf::Text text;
 
     std::vector<Player> players;
+
+    char in[128];
+    std::size_t received;
 
     void init();
     void start();
@@ -29,6 +41,12 @@ private:
     int winner;
     int getWinner();
     void spawnPlayers();
+
+    void getMessage();
+    void clearMessage();
+    
+    template <typename T>
+    void sendData(T data);
 
     float gameTime;
 
