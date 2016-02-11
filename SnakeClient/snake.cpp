@@ -17,20 +17,30 @@ Snake::Snake() {
 }
 
 void Snake::init() {
-    int port;
-    std::cout << "Please set server port: ";
-    std::cin >> port;
-
-    std::string ip = "127.0.0.1";
-    sf::Socket::Status status = socket.connect(ip, port);
-    if (status != sf::Socket::Done) {
-        std::cout << "SOCKET FAILED TO CONNECT!" << std::endl;
+    std::string port;
+    std::cout << "Enter port number: ";
+    std::getline(std::cin, port);
+    if (port == "") {
+        port = "8000";
+        std::cout << "defaulting to port: " << port << std::endl;
     }
 
-    char data[] = { "hello, client connected!" };
+    std::string ip;
+    std::cout << "Enter IP address: ";
+    std::getline(std::cin, ip);
+    if (ip == "") {
+        ip = "127.0.0.1";
+        std::cout << "defaulting to ip: " << ip << std::endl;
+    }
 
-    socket.send(data, sizeof(data)/sizeof(char));
+    if (socket.connect(ip, std::atoi(port.c_str())) != sf::Socket::Done) {
+        std::cout << "SOCKET FAILED TO CONNECT!" << std::endl;
+    } else {
+        std::cout << "SOCKET CONNECTED!" << std::endl;
+    }
+
     socket.setBlocking(false);
+    sendData("Hello from the client!");
 
     // build window
     sf::ContextSettings settings;
@@ -318,7 +328,7 @@ void Snake::generateVertices(sf::VertexArray& verts) {
     }
 }
 
-int main() {    
+int main() {
 
     Snake game;
     return 0;

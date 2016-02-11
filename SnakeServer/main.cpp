@@ -11,14 +11,22 @@
 int main() {
     sf::TcpListener listener;
 
-    int port;
-    std::cout << "GIME PORT: ";
-    std::cin >> port;
+    std::string port;
+    std::cout << "Enter port number: ";
+    std::getline(std::cin, port);
+    if (port == "") {
+        port = "8000";
+        std::cout << "defaulting to port: " << port << std::endl;
+    } else {
+        std::cout << port << std::endl;
+    }
 
     // bind the listener to a port
-    if (listener.listen(port) != sf::Socket::Done) {
+    if (listener.listen(std::atoi(port.c_str())) != sf::Socket::Done) {
         std::cout << "CANT LISTEN M8" << std::endl;
     }
+
+    std::cout << "SERVER STARTED..." << std::endl;
 
     // wait for new connection
     sf::TcpSocket client;
@@ -29,18 +37,36 @@ int main() {
     }
 
     char in[128];
-    std::size_t received;
+    std::size_t received_len;
 
     // later find number of players
     std::vector<int> scores(2);
 
     while (true) {
-        if (client.receive(in, sizeof(in), received) != sf::Socket::Done) {
-            return 0;
+        if (client.receive(in, sizeof(in), received_len) != sf::Socket::Done) {
+            std::cout << "CLIENT DISCONNECTED!" << std::endl;
+            // clear scores
+            for (size_t i = 0; i < scores.size(); ++i) {
+                scores[i] = 0;
+            }
+
+            // if client disconnected then wait for a new connection
+            //return 0; // could also just quit once client disconnects
+            if (listener.accept(client) != sf::Socket::Done) {
+                std::cout << "NO CLIENT" << std::endl;
+            } else {
+                std::cout << "CLIENT CONNECTED!" << std::endl;
+            }
         }
 
+        // set null character to ignore anything after received length
+        in[received_len] = '\0';
         std::string msg = std::string(in);
-        if (msg == "0") {
+
+        if (msg == "") {
+            continue;
+        } else if (msg == "0") {
+            // clear scores
             for (size_t i = 0; i < scores.size(); ++i) {
                 scores[i] = 0;
             }
@@ -59,11 +85,11 @@ int main() {
             client.send(s.c_str(), s.length());
         }
 
-        std::cout << "Answer received from the client: \"" << in << "\"" << std::endl;
+        std::cout << "Message from client: \"" << in << "\"" << std::endl;
 
         // empty our message
-        int len = sizeof(in) / sizeof(char);
-        for (int i = 0; i < len; ++i) {
+        int in_len = sizeof(in) / sizeof(char);
+        for (int i = 0; i < in_len; ++i) {
             in[i] = '\0';
         }
 
