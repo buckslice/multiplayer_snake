@@ -3,9 +3,11 @@
 !*.cpp
 !*.hpp
 !*.h
-!*.ttf
 !*.sln
+!*.dll
 !*.vcxproj
 !*.vcxproj.filters
 !libs/
 !libs/**
+!Release
+!Debug
