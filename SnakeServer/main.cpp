@@ -10,7 +10,7 @@
 
 int main() {
     sf::TcpListener listener;
-
+    listener.setBlocking(false);
     std::string port;
     std::cout << "Enter port number: ";
     std::getline(std::cin, port);
@@ -26,74 +26,72 @@ int main() {
         std::cout << "CANT LISTEN M8" << std::endl;
     }
 
+
     std::cout << "SERVER STARTED..." << std::endl;
 
+    int connectedPlayers = 0;
+    int maxPlayers = 2;
     // wait for new connection
-    sf::TcpSocket client;
-    if (listener.accept(client) != sf::Socket::Done) {
-        std::cout << "NO CLIENT" << std::endl;
-    } else {
-        std::cout << "CLIENT CONNECTED!" << std::endl;
-    }
+    std::vector<sf::TcpSocket*> clients;    // remember to delete these! #lol! try using shared_ptrs
+    std::vector<int> scores;
 
     char in[128];
     std::size_t received_len;
 
-    // later find number of players
-    std::vector<int> scores(2);
-
     while (true) {
-        if (client.receive(in, sizeof(in), received_len) != sf::Socket::Done) {
-            std::cout << "CLIENT DISCONNECTED!" << std::endl;
-            // clear scores
-            for (size_t i = 0; i < scores.size(); ++i) {
-                scores[i] = 0;
-            }
-
-            // if client disconnected then wait for a new connection
-            //return 0; // could also just quit once client disconnects
-            if (listener.accept(client) != sf::Socket::Done) {
-                std::cout << "NO CLIENT" << std::endl;
-            } else {
-                std::cout << "CLIENT CONNECTED!" << std::endl;
-            }
+        // push back new potential connection if yes
+        if (clients.size() == connectedPlayers) {
+            sf::TcpSocket* client = new sf::TcpSocket();
+            client->setBlocking(false);
+            clients.push_back(client);
+            scores.push_back(0);
         }
 
-        // set null character to ignore anything after received length
-        in[received_len] = '\0';
-        std::string msg = std::string(in);
-
-        if (msg == "") {
-            continue;
-        } else if (msg == "0") {
-            // clear scores
-            for (size_t i = 0; i < scores.size(); ++i) {
-                scores[i] = 0;
-            }
+        if (listener.accept(*clients[connectedPlayers]) != sf::Socket::Done) {
+            //std::cout << "CLIENT TIMED OUT MAYBE?" << std::endl;
         } else {
-            // add one to players score
-            int player = std::atoi(msg.c_str()) - 1;
-            scores[player]++;
-
-            // send back score vector
-            std::ostringstream oss;
-            for (size_t i = 0; i < scores.size(); ++i) {
-                oss << scores[i];
+            std::cout << "CLIENT CONNECTED, ASSIGNED AS PLAYER #" << (++connectedPlayers) << std::endl;
+            if (connectedPlayers >= 2) {
+                std::cout << "GAME STARTING!!!" << std::endl;
+                // set game start bool and check down below
             }
-
-            std::string s = oss.str();
-            client.send(s.c_str(), s.length());
         }
 
-        std::cout << "Message from client: \"" << in << "\"" << std::endl;
+        //if (clients.size() < 2) {
+        //    continue;
+        //}
 
-        // empty our message
-        int in_len = sizeof(in) / sizeof(char);
-        for (int i = 0; i < in_len; ++i) {
-            in[i] = '\0';
+        for (size_t i = 0, len = clients.size()-1; i < len; ++i) {  // for each player
+            sf::Socket::Status status = clients[i]->receive(in, sizeof(in), received_len);
+
+            if (status == sf::Socket::NotReady || status == sf::Socket::Error) {   // no data from the client this frame
+                continue;
+            } else if (status == sf::Socket::Disconnected) {    // q or disconnected
+                std::cout << "PLAYER #" << (i + 1) << " DISCONNECTED! GAME STOPPING..." << std::endl;
+                // quit for now but instead later could clear scores and wait for full game to start afresh like before
+                goto cya;
+            }   // else there was data received!
+
+            // process received data from this player
+            // set null character to ignore anything after received length (non blocking sockets get some trash data at end)
+            in[received_len] = '\0';
+            std::string msg = std::string(in);
+
+            if (msg == "") {
+                continue;
+            }
+
+            std::cout << "Message from client #" << (i + 1) << " \"" << msg << "\"" << std::endl;
+
+            // empty our message
+            int in_len = sizeof(in) / sizeof(char);
+            for (int i = 0; i < in_len; ++i) {
+                in[i] = '\0';
+            }
         }
 
     }
+    cya: // easy game
 
     system("pause");
 
