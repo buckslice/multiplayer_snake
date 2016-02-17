@@ -15,7 +15,6 @@ public:
     point getPos();
     point getMove();
 
-    void checkInput();
     point move();
 
     void spawn(int x, int y, int dx, int dy);
@@ -23,7 +22,7 @@ public:
     void grow(int amount);
 
     bool dead;
-    int id;     // tile id starting at 3
+    int id;
     int score;
 
     sf::Color color;

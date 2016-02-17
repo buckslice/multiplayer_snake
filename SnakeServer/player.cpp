@@ -4,41 +4,9 @@
 // John Collins     75665849    jfcollin@uci.edu
 
 #include "player.h"
-#include "input.h"
 
 Player::Player(int id) : id{ id } {
 
-}
-
-void Player::checkInput() {
-    if (Input::justPressed(sf::Keyboard::A) || Input::justPressed(sf::Keyboard::Left)) {
-        if (dir.x == 0) {
-            inone = { -1,0 };
-        } else if (inone.y != 0) {
-            intwo = { -1,0 };
-        }
-    }
-    if (Input::justPressed(sf::Keyboard::D) || Input::justPressed(sf::Keyboard::Right)) {
-        if (dir.x == 0) {
-            inone = { 1,0 };
-        } else if (inone.y != 0) {
-            intwo = { 1,0 };
-        }
-    }
-    if (Input::justPressed(sf::Keyboard::S) || Input::justPressed(sf::Keyboard::Down)) {
-        if (dir.y == 0) {
-            inone = { 0,1 };
-        } else if (inone.x != 0) {
-            intwo = { 0,1 };
-        }
-    }
-    if (Input::justPressed(sf::Keyboard::W) || Input::justPressed(sf::Keyboard::Up)) {
-        if (dir.y == 0) {
-            inone = { 0,-1 };
-        } else if (inone.x != 0) {
-            intwo = { 0,-1 };
-        }
-    }
 }
 
 void Player::spawn(int x, int y, int dx, int dy) {

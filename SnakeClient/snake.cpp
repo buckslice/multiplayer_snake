@@ -38,8 +38,8 @@ void Snake::init() {
     } else {
         std::cout << "SOCKET CONNECTED!" << std::endl;
     }
-
     socket.setBlocking(false);
+
     sendData("Hello from the client!");
 
     // build window
@@ -47,44 +47,29 @@ void Snake::init() {
     settings.depthBits = 24;
     settings.stencilBits = 8;
     settings.antialiasingLevel = 2;
-    window = new sf::RenderWindow(sf::VideoMode(WIDTH, HEIGHT), "Snake!", sf::Style::Default, settings);
+    window = new sf::RenderWindow(sf::VideoMode(WIDTH, HEIGHT), "Snake Client", sf::Style::Default, settings);
     window->setFramerateLimit(60);
 
     if (!font.loadFromFile("OCRAEXT.TTF")) {
-        std::cout << "FONT COULDN'T LOAD" << std::endl;
+        std::cout << "FAILED LOADING FONT" << std::endl;
     }
-}
 
-void Snake::start() {
     map = Map((int)(WIDTH / TILE), (int)(HEIGHT / TILE) - 1);
     map.pos = { 0,(int)TILE };
     map.generate();
 
     text.setFont(font);
     text.setCharacterSize(30);
+}
 
-    // set up players
-    int ids = PLAYER;
-    players.push_back(Player(true, ids++));
-    players.push_back(Player(false, ids++));
+void Snake::start() {
 
-    // set up player colors
-    players[0].color = sf::Color(255, 127, 51);
-    players[1].color = sf::Color(255, 255, 51);
-
-    spawnPlayers();
-    map.spawnRandom(FOOD);
-
-    gameTime = -1.0f;
-    render();
-    winner = 0;
     sf::Clock frameTime;
     bool running = true;
     while (running) {
-        // increment gameTime
         float delta = frameTime.restart().asSeconds();
-        gameTime += delta;
 
+        // process window events
         sf::Event e;
         while (window->pollEvent(e)) {
             switch (e.type) {
@@ -99,62 +84,16 @@ void Snake::start() {
         // update input arrays
         Input::update();
 
-        if (Input::justPressed(sf::Keyboard::Key::Escape)) {
+        if (Input::justPressed(sf::Keyboard::Escape)) {
             running = false;
         }
 
-        // get input from players
-        for (size_t i = 0; i < players.size(); ++i) {
-            players[i].checkInput();
-        }
+        //player.checkInput(); // only if game is running
 
-        float gameTick = 0.1f;  // snake moves 10 times a second
-        if (gameTime >= gameTick) {
-            std::string txt;
-            for (size_t i = 0; i < players.size(); ++i) {
-                // figure out dir
-                Player& p = players[i];
-                point mv = p.getMove();
-                if (map.isWalkable(mv.x, mv.y)) {   // valid move
-                    point oldend = p.move();
-                    map.setTile(oldend, 0);
-                    map.setTile(p.getPos(), p.id);
-                } else if (map.getTile(mv.x, mv.y) == FOOD) {   // ran into food
-                    point oldend = p.move();
-                    map.setTile(oldend, 0);
-                    map.setTile(p.getPos(), p.id);
-                    p.grow(3);
-                    //p.score++;
-
-                    sendData(i + 1);
-
-                    map.spawnRandom(FOOD);
-                } else {    // hit wall or part of a snake so this player dies!
-                    p.dead = true;
-                }
-            }
-
-            winner = getWinner();
-            // if game ended then restart
-            if (winner != 0) {
-                gameTime = -2.0f;
-            } else {    // else just zero it cuz games still going
-                gameTime = 0.0f;
-            }
-
-            render();
-        }
-
-        // reset game after 1 second
-        if (winner != 0 && gameTime > -1.0f) {
-            winner = 0;
-            sendData('0');
-            map.generate();
-            spawnPlayers();
-            map.spawnRandom(FOOD);
-            render();
-        }
-
+        // send direction of your player to server
+        
+        // renders the board and limits framerate
+        render();
     }
 
     socket.disconnect();
@@ -172,59 +111,10 @@ void Snake::sendData(T data) {
     socket.send(s.c_str(), s.length(), len);
 }
 
-// return 0 means game still going
-// return -1 means draw
-// return > 0 means player n won
-int Snake::getWinner() {
-    bool oneAlive = false;
-    int winner = 0;
-    for (size_t i = 0; i < players.size(); ++i) {
-        if (!players[i].dead) {
-            if (oneAlive) { // if another player has been found alive then return -1 cuz game isnt over
-                return 0;
-            }
-            winner = i + 1;
-            oneAlive = true;
-        }
-    }
-    if (!oneAlive) {  // this means it was a draw
-        return -1;
-    }
-
-    return winner;
-}
-
-void Snake::spawnPlayers() {
-    for (size_t i = 0; i < players.size(); ++i) {
-        Player& p = players[i];
-        switch (p.id - PLAYER) {
-        case 0:
-            p.spawn(4, 4, 0, 1);
-            break;
-        case 1:
-            p.spawn(map.getW() - 5, map.getH() - 5, 0, -1);
-            break;
-        default:
-            std::cout << "spawning player at default spawn" << std::endl;
-            p.spawn(map.getW() / 2, map.getH() / 2, 1, 0);
-            break;
-        }
-        map.setTile(p.getPos(), p.id);
-    }
-}
-
-void Snake::clearMessage() {
-    int len = sizeof(in) / sizeof(char);
-    for (int i = 0; i < len; ++i) {
-        in[i] = '\0';
-    }
-}
-
-void Snake::getMessage() {
+void Snake::checkServerMessage() {
     // check for scores from server
     if (socket.receive(in, sizeof(in), received) == sf::Socket::NotReady) {
-        //std::cout << "discarding partial message" << std::endl;
-        clearMessage();
+        clearMessageBuffer(); // not sure
     }
 
     std::string msg = std::string(in);
@@ -232,12 +122,29 @@ void Snake::getMessage() {
         return;
     }
 
-    for (size_t i = 0; i < msg.size(); ++i) {
-        players[i].score = msg.at(i) - '0';
+    // process message here
+
+    // there will be a "game started" message or something that will tell you
+    // which snake id you are
+    // should set some running bool so you know to start sending input back to server
+
+    // and then there will just be whole game state messages
+    // where you update your local players vector
+
+    // how we did scores before
+    //for (size_t i = 0; i < msg.size(); ++i) {
+    //    players[i].score = msg.at(i) - '0';
+    //}
+
+    clearMessageBuffer();
+
+}
+
+void Snake::clearMessageBuffer() {
+    int len = sizeof(in) / sizeof(char);
+    for (int i = 0; i < len; ++i) {
+        in[i] = '\0';
     }
-
-    clearMessage();
-
 }
 
 void Snake::render() {
@@ -250,41 +157,7 @@ void Snake::render() {
 
     window->draw(verts);
 
-    getMessage();
-
-    for (size_t i = 0; i < players.size(); ++i) {
-        std::ostringstream oss;
-
-        Player& p = players[i];
-        oss << "P " << p.id - PLAYER + 1 << " : " << p.score << " ";
-        text.setString(oss.str());
-        text.setColor(p.color);
-        if (i == 0) {
-            text.setPosition(sf::Vector2f(0.0f, 0.0f));
-        } else {
-            sf::FloatRect fr = text.getLocalBounds();
-            text.setPosition(sf::Vector2f(WIDTH - fr.width, 0.0f));
-        }
-        window->draw(text);
-    }
-
-    text.setColor(sf::Color(200, 255, 255));
-    std::ostringstream oss;
-    if (gameTime < -1.0f) {
-        if (winner < 0) {
-            oss << "DRAW!";
-        } else {
-            oss << "Player " << winner << " wins!";
-        }
-    } else if (gameTime < 0.0f) {
-        oss << "GET READY";
-    } else {
-        oss << "SNAKE!";
-    }
-    text.setString(oss.str());
-    sf::FloatRect fr = text.getLocalBounds();
-    text.setPosition(sf::Vector2f(WIDTH / 2 - fr.width / 2.0f, 0.0f));
-    window->draw(text);
+    // add text back in later
 
     window->display();
 }
@@ -310,13 +183,16 @@ void Snake::generateVertices(sf::VertexArray& verts) {
             case FOOD:
                 color = sf::Color(0, 255, 0);
                 break;
+
+                // temp colors like this for now
+            case PLAYER:
+                color = sf::Color(255, 127, 51);
+                break;
+            case PLAYER+1:
+                color = sf::Color(255, 255, 51);
+                break;
             default:
-                Player& p = players[id - PLAYER];
-                if (gameTime < 0.0 && p.dead) {
-                    color = sf::Color(255, 0, 0);
-                } else {
-                    color = p.color;
-                }
+                color = sf::Color(255, 0, 255);
                 break;
             }
 

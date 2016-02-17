@@ -4,13 +4,14 @@
 // John Collins     75665849    jfcollin@uci.edu
 
 #pragma once
+#include <SFML/Network.hpp>
 #include "map.h"
 #include "player.h"
-#include <SFML/Network.hpp>
 
 class Snake {
 public:
     Snake();
+    ~Snake();
 
     const int WIDTH = 800;
     const int HEIGHT = 600;
@@ -23,13 +24,9 @@ public:
 private:
     sf::RenderWindow* window;
 
-    sf::TcpSocket socket;
+    sf::TcpListener listener;
+    std::vector<sf::TcpSocket*> clients;
 
-    // which player you are in list of players
-    int playerIndex;
-
-    // will be used as a holder for scores
-    // and when getting input say players[playerIndex].getInput()
     std::vector<Player> players;
 
     Map map;
@@ -40,16 +37,31 @@ private:
     void init();
     void start();
 
-    char in[128];
-    std::size_t received;
+    void checkNewConnections();
+    void checkClientMessages();
 
-    void checkServerMessage();
-    void clearMessageBuffer();
-    
-    template <typename T>
-    void sendData(T data);
+    int winner;
+    bool gameRunning = false;
+    float gameTime = -100.0f;
+    const float tickTime = 0.1f;
+
+    void gameTick();
+    void broadcastGameState();
+    int getWinner();
+    void startGame(float delay);
 
     void render();
     void generateVertices(sf::VertexArray& verts);
+
+
+    char in[128];
+    std::size_t received_len;
+    void clearMessageBuffer();
+
+    //void getMessage();
+    //void clearMessage();
+
+    //template <typename T>
+    //void sendData(T data);
 
 };
