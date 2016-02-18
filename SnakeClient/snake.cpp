@@ -41,6 +41,7 @@ void Snake::init() {
     socket.setBlocking(false);
 
     sendData("Hello from the client!");
+    sendData("Hello from the client!");
 
     // build window
     sf::ContextSettings settings;
@@ -88,9 +89,14 @@ void Snake::start() {
             running = false;
         }
 
-        //player.checkInput(); // only if game is running
+        checkServerMessage();
 
-        // send direction of your player to server
+        if (gameRunning) {
+            players[playerIndex].checkInput();
+
+            // send message to server containing your direction
+
+        }
         
         // renders the board and limits framerate
         render();
@@ -113,28 +119,37 @@ void Snake::sendData(T data) {
 
 void Snake::checkServerMessage() {
     // check for scores from server
-    if (socket.receive(in, sizeof(in), received) == sf::Socket::NotReady) {
+    sf::Socket::Status status = socket.receive(in, sizeof(in), received_len);
+    if (status != sf::Socket::Done) {
         clearMessageBuffer(); // not sure
+        return;
     }
 
+    // set null character to ignore anything after received length (non blocking sockets get some trash data at end)
+    in[received_len] = '\0';
     std::string msg = std::string(in);
     if (msg == "") {
         return;
     }
 
-    // process message here
+    std::istringstream mss(msg);
+    // for each message in stream
+    while (!mss.eof()) {
+        std::string update;
+        getline(mss, update, '.'); // full game updates are seperated by '.'
+        std::cout << update << std::endl;
 
-    // there will be a "game started" message or something that will tell you
-    // which snake id you are
-    // should set some running bool so you know to start sending input back to server
+        // now gotta split update up and process
+        // use another istringstream within the while probably
 
-    // and then there will just be whole game state messages
-    // where you update your local players vector
-
-    // how we did scores before
-    //for (size_t i = 0; i < msg.size(); ++i) {
-    //    players[i].score = msg.at(i) - '0';
-    //}
+        //int type = msg.at(0) - '0';
+        //if (type == 0) {    // game state update from server
+        //} else if (type == 1){
+        //    playerIndex = msg.at(1) - '0';
+        //} else {
+        //    std::cout << "unknown message type received from server" << std::endl;
+        //}
+    }
 
     clearMessageBuffer();
 

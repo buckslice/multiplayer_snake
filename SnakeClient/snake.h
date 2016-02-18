@@ -32,6 +32,8 @@ private:
     // and when getting input say players[playerIndex].getInput()
     std::vector<Player> players;
 
+    bool gameRunning = false;
+
     Map map;
     sf::Font font;
     sf::Text text;
@@ -40,8 +42,8 @@ private:
     void init();
     void start();
 
-    char in[128];
-    std::size_t received;
+    char in[256];
+    std::size_t received_len;
 
     void checkServerMessage();
     void clearMessageBuffer();

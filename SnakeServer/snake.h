@@ -25,13 +25,18 @@ private:
     sf::RenderWindow* window;
 
     sf::TcpListener listener;
+
+    // client position in list are ordered by longest time connected
     std::vector<sf::TcpSocket*> clients;
 
+    // client[0] is always player[0] and so on, but ids may mismatch depending on disconnects
+    // client 1 might be player 2 for example
     std::vector<Player> players;
 
     Map map;
     sf::Font font;
     sf::Text text;
+    point foodPos;
 
 
     void init();
@@ -43,7 +48,7 @@ private:
     int winner;
     bool gameRunning = false;
     float gameTime = -100.0f;
-    const float tickTime = 0.1f;
+    const float tickTime = 2.0f;    // slowed down for testing (was 0.1f)
 
     void gameTick();
     void broadcastGameState();
@@ -54,14 +59,12 @@ private:
     void generateVertices(sf::VertexArray& verts);
 
 
-    char in[128];
+    char in[256];
     std::size_t received_len;
     void clearMessageBuffer();
 
-    //void getMessage();
-    //void clearMessage();
-
-    //template <typename T>
-    //void sendData(T data);
+    // send data to a client
+    template <typename T>
+    void sendData(sf::TcpSocket* client, T data);
 
 };

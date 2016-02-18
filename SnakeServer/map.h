@@ -21,7 +21,8 @@ public:
 
     void generate();
 
-    void spawnRandom(int id);
+    // returns where it spawned it
+    point spawnRandom(int id);
 
     int getW();
     int getH();

@@ -47,7 +47,7 @@ bool Map::isWalkable(int x, int y) {
     return getTile(x, y) == 0;
 }
 
-void Map::spawnRandom(int id) {
+point Map::spawnRandom(int id) {
     std::vector<point> open;
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
@@ -58,7 +58,9 @@ void Map::spawnRandom(int id) {
     }
 
     std::uniform_int_distribution<int> uni(0, open.size() - 1);
-    setTile(open[uni(rng)], id);
+    point pos = open[uni(rng)];
+    setTile(pos, id);
+    return pos;
 }
 
 void Map::generate() {

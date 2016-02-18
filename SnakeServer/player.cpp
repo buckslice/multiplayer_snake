@@ -45,6 +45,10 @@ point Player::getPos() {
     return points[0];
 }
 
+std::vector<point>& Player::getPoints() {
+    return points;
+}
+
 point Player::getMove() {
     if (inone.x != 0 || inone.y != 0) {
         dir = inone;

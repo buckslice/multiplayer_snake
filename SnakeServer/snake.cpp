@@ -86,7 +86,7 @@ void Snake::checkNewConnections() {
         bool foundFree = false;
         while (!foundFree) {
             foundFree = true;
-            for (int i = 0; i < players.size(); ++i) {
+            for (size_t i = 0; i < players.size(); ++i) {
                 if (players[i].id == freeID) {
                     freeID++;
                     foundFree = false;
@@ -162,6 +162,41 @@ void Snake::broadcastGameState() {
     // position of each snake
     // score of each snake
     // location of food
+
+    std::ostringstream oss;
+    oss << 0;   // game state update code
+    oss << " ";
+
+    for (size_t i = 0; i < players.size(); ++i) {
+        auto& points = players[i].getPoints();
+
+        for (size_t j = 0; j < points.size(); ++j) {
+            point p = points[j];
+            oss << p.x << ',' << p.y << ',';
+        }
+        // TODO add player score also
+        // add space between each player
+        oss << " ";
+    }
+
+    oss << foodPos.x << ',' << foodPos.y << ',';
+
+    oss << "."; // end of game state message
+
+    // send game state to each client
+    for (size_t i = 0; i < clients.size() - 1; ++i) {
+        sendData(clients[i], oss.str());
+    }
+}
+
+// send data to a client
+template <typename T>
+void Snake::sendData(sf::TcpSocket* client, T data) {
+    std::ostringstream oss;
+    oss << data;
+    std::string s = oss.str();
+    size_t len;
+    client->send(s.c_str(), s.length(), len);
 }
 
 // progress state of game by one move
@@ -181,7 +216,7 @@ void Snake::gameTick() {
             p.grow(3);
             p.score++;
 
-            map.spawnRandom(FOOD);
+            foodPos = map.spawnRandom(FOOD);
         } else {    // hit wall or part of a snake so this player dies!
             p.dead = true;
         }
@@ -191,7 +226,7 @@ void Snake::gameTick() {
 void Snake::start() {
     sf::Clock frameTime;
     bool running = true;
-
+    bool paused = false;
     while (running) {
         // increment gameTime
         float delta = frameTime.restart().asSeconds();
@@ -206,10 +241,16 @@ void Snake::start() {
             case sf::Event::KeyPressed:
                 if (e.key.code == sf::Keyboard::Escape) {
                     running = false;
+                } else if (e.key.code == sf::Keyboard::Space) {
+                    paused = !paused;
                 }
             default:
                 break;
             }
+        }
+        if (paused) {
+            render();
+            continue;
         }
 
         checkNewConnections();
@@ -272,7 +313,7 @@ void Snake::startGame(float delay) {
         map.setTile(p.getPos(), p.id + PLAYER);
     }
 
-    map.spawnRandom(FOOD);
+    foodPos = map.spawnRandom(FOOD);
 
     // need to send message to each client saying game has started
     // tell client what their id is

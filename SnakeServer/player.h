@@ -13,6 +13,7 @@ public:
     Player(int id);
 
     point getPos();
+    std::vector<point>& getPoints();
     point getMove();
 
     point move();
