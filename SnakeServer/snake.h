@@ -1,7 +1,8 @@
 // ICS 167 Multiplayer Snake Project by:
-// Matt Ruiz        28465978    mpruiz@uci.edu
-// Luke Lohden      23739798    llohden@uci.edu
 // John Collins     75665849    jfcollin@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Gary Patches
 
 #pragma once
 #include <SFML/Network.hpp>
@@ -44,27 +45,22 @@ private:
 
     void checkNewConnections();
     void checkClientMessages();
+    void processPacket(sf::Packet& packet, int index);
 
     int winner;
     bool gameRunning = false;
     float gameTime = -100.0f;
-    const float tickTime = 2.0f;    // slowed down for testing (was 0.1f)
+    const float tickTime = 0.1f;    // should slow down when testing
 
     void gameTick();
     void broadcastGameState();
+    void broadcastPacket(sf::Packet& packet);    // send packet to all clients
     int getWinner();
     void startGame(float delay);
 
+    std::string getTitle();
     void render();
     void generateVertices(sf::VertexArray& verts);
 
-
-    char in[256];
-    std::size_t received_len;
-    void clearMessageBuffer();
-
-    // send data to a client
-    template <typename T>
-    void sendData(sf::TcpSocket* client, T data);
 
 };

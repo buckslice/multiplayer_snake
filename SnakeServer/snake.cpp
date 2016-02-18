@@ -1,7 +1,8 @@
 // ICS 167 Multiplayer Snake Project by:
-// Matt Ruiz        28465978    mpruiz@uci.edu
-// Luke Lohden      23739798    llohden@uci.edu
 // John Collins     75665849    jfcollin@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Gary Patches
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
@@ -106,97 +107,102 @@ void Snake::checkClientMessages() {
     // iterate over each connected client and check for received messages
     // skip last element of clients since that is an open socket waiting for a new connection
     for (size_t i = 0, len = clients.size() - 1; i < len; ++i) {
-        // get message from client socket
-        sf::Socket::Status status = clients[i]->receive(in, sizeof(in), received_len);
+        sf::Packet packet;
 
-        // if no data from the client this frame or some sort of error then continue
-        if (status == sf::Socket::NotReady || status == sf::Socket::Error) {
-            clearMessageBuffer();   // not sure if this is required, but just in case
-            continue;
-        } else if (status == sf::Socket::Disconnected) {    // if client disconnected
-            std::cout << "Client " << (i + 1) << " disconnected" << std::endl;
+        while (true) {
+            // get packet from client socket
+            sf::Socket::Status status = clients[i]->receive(packet);
 
-            // erase client info from vectors
-            delete(clients[i]);
-            clients.erase(clients.begin() + i);
-            players.erase(players.begin() + i);
+            // if no data from the client this frame or some sort of error then continue
+            if (status == sf::Socket::NotReady || status == sf::Socket::Error) {
+                break;
+            } else if (status == sf::Socket::Disconnected) {    // if client disconnected
+                std::cout << "Client " << (i + 1) << " disconnected" << std::endl;
 
-            if (players.size() < 2) {
-                // resets game while waiting
-                gameTime = -2.0f;
-                gameRunning = false;
-                winner = 0;
-                map.generate();
+                // erase client info from vectors
+                delete(clients[i]);
+                clients.erase(clients.begin() + i);
+                players.erase(players.begin() + i);
+
+                if (players.size() < 2) {
+                    // resets game while waiting
+                    gameTime = -2.0f;
+                    gameRunning = false;
+                    winner = 0;
+                    map.generate();
+                }
+                break;
             }
+            // reaching this point means data was successfully received
+
+            processPacket(packet, i);
         }
-        // reaching this point means data was successfully received
-
-        // set null character to ignore anything after received length (non blocking sockets get some trash data at end)
-        in[received_len] = '\0';
-        std::string msg = std::string(in);
-
-        if (msg == "") {    // if empty message then continue (not sure if this can even happen at this point)
-            continue;
-        }
-
-        // print message from client for debugging
-        std::cout << "Message from client " << (i + 1) << " \"" << msg << "\"" << std::endl;
-
-        // process client message
-        // set their players dir equal to the dir they send
-
-        clearMessageBuffer();
     }
 }
 
-void Snake::clearMessageBuffer() {
-    // empty our message array buffer
-    int in_len = sizeof(in) / sizeof(char);
-    for (int i = 0; i < in_len; ++i) {
-        in[i] = '\0';
+void Snake::processPacket(sf::Packet& packet, int index) {
+    sf::Uint8 b;
+    packet >> b;
+    if (b == 0) {
+        packet >> players[index].inone;
+        packet >> players[index].intwo;
+    } else if (b == 1) {    // if type == 1
+        std::string s;
+        packet >> s;
+
+        std::cout << s << std::endl;
+    } else {
+        std::cout << "Unknown packet type received from client" << std::endl;
+    }
+}
+
+void Snake::broadcastPacket(sf::Packet& packet) {
+    for (size_t i = 0; i < clients.size() - 1; ++i) {
+        clients[i]->send(packet);
     }
 }
 
 void Snake::broadcastGameState() {
-    // loop through each client and send back current game state
-    // position of each snake
-    // score of each snake
-    // location of food
+    // PACKAGE LAYOUT
+    // type
+    // number of players
+      // for each player
+        // player id
+        // player score
+        // player dir, and inputs
+        // length of snake
+        // points in snake
+    // food pos
+    // id of client in player list
 
-    std::ostringstream oss;
-    oss << 0;   // game state update code
-    oss << " ";
+    sf::Packet packet;
 
+    packet << (sf::Uint8) 0;
+    packet << (sf::Uint8) players.size();
     for (size_t i = 0; i < players.size(); ++i) {
-        auto& points = players[i].getPoints();
+        Player& player = players[i];
+        packet << (sf::Uint8)player.id;
+        packet << (sf::Uint8)player.score;
+        packet << player.dir;
+        packet << player.inone;
+        packet << player.intwo;
+
+        auto& points = player.getPoints();
+        packet << (sf::Uint8) points.size();
 
         for (size_t j = 0; j < points.size(); ++j) {
-            point p = points[j];
-            oss << p.x << ',' << p.y << ',';
+            packet << points[j];
         }
-        // TODO add player score also
-        // add space between each player
-        oss << " ";
+
     }
-
-    oss << foodPos.x << ',' << foodPos.y << ',';
-
-    oss << "."; // end of game state message
+    packet << foodPos;
 
     // send game state to each client
     for (size_t i = 0; i < clients.size() - 1; ++i) {
-        sendData(clients[i], oss.str());
+        sf::Packet clientPacket = packet;
+        clientPacket << (sf::Uint8) i;
+        clients[i]->send(clientPacket);
     }
-}
-
-// send data to a client
-template <typename T>
-void Snake::sendData(sf::TcpSocket* client, T data) {
-    std::ostringstream oss;
-    oss << data;
-    std::string s = oss.str();
-    size_t len;
-    client->send(s.c_str(), s.length(), len);
 }
 
 // progress state of game by one move
@@ -257,6 +263,11 @@ void Snake::start() {
 
         checkClientMessages();
 
+        sf::Packet titlePacket;
+        titlePacket << (sf::Uint8) 1;   // message type
+        titlePacket << getTitle();
+        broadcastPacket(titlePacket);
+
         if (gameRunning) {
             gameTime += delta;
             // if enough time has passed then do a game tick
@@ -278,6 +289,7 @@ void Snake::start() {
             // if game ended then restart after delay
             if (winner != 0 && gameTime > -1.0f) {
                 startGame(1.0f);
+                broadcastGameState();
             }
         }
 
@@ -315,8 +327,6 @@ void Snake::startGame(float delay) {
 
     foodPos = map.spawnRandom(FOOD);
 
-    // need to send message to each client saying game has started
-    // tell client what their id is
 }
 
 
@@ -342,6 +352,23 @@ int Snake::getWinner() {
     return winner;
 }
 
+std::string Snake::getTitle() {
+    std::ostringstream oss;
+    if (gameTime < -1.0f) {
+        if (winner < 0) {
+            oss << "DRAW!";
+        } else if (winner == 0) {
+            oss << "WAITING...";
+        } else {
+            oss << "Player " << winner << " wins!";
+        }
+    } else if (gameTime < 0.0f) {
+        oss << "GET READY";
+    } else {
+        oss << "SNAKE!";
+    }
+    return oss.str();
+}
 
 void Snake::render() {
     window->clear(sf::Color(12, 26, 51));
@@ -359,7 +386,7 @@ void Snake::render() {
         Player& p = players[i];
         oss << "P " << (p.id + 1) << " : " << p.score << " ";
         text.setString(oss.str());
-        text.setColor(p.color);
+        text.setColor(Player::getColorFromID(p.id));
         if (i == 0) {
             text.setPosition(sf::Vector2f(0.0f, 0.0f));
         } else {
@@ -370,21 +397,7 @@ void Snake::render() {
     }
 
     text.setColor(sf::Color(200, 255, 255));
-    std::ostringstream oss;
-    if (gameTime < -1.0f) {
-        if (winner < 0) {
-            oss << "DRAW!";
-        } else if (winner == 0) {
-            oss << "WAITING...";
-        } else {
-            oss << "Player " << winner << " wins!";
-        }
-    } else if (gameTime < 0.0f) {
-        oss << "GET READY";
-    } else {
-        oss << "SNAKE!";
-    }
-    text.setString(oss.str());
+    text.setString(getTitle());
     sf::FloatRect fr = text.getLocalBounds();
     text.setPosition(sf::Vector2f(WIDTH / 2 - fr.width / 2.0f, 0.0f));
     window->draw(text);
@@ -415,25 +428,9 @@ void Snake::generateVertices(sf::VertexArray& verts) {
                 color = sf::Color(0, 255, 0);
                 break;
 
-                // temp colors like this for now
-            case PLAYER:
-                color = sf::Color(255, 127, 51);
-                break;
-            case PLAYER + 1:
-                color = sf::Color(255, 255, 51);
-                break;
             default:
-                color = sf::Color(255, 0, 255);
+                color = Player::getColorFromID(id - PLAYER);
                 break;
-
-                //default:
-                //    Player& p = players[id - PLAYER];
-                //    if (gameTime < 0.0f && p.dead) {
-                //        color = sf::Color(255, 0, 0);
-                //    } else {
-                //        color = p.color;
-                //    }
-                //    break;
             }
 
             verts.append(sf::Vertex(sf::Vector2f(x0, y0), color));

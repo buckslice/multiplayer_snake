@@ -1,7 +1,8 @@
 // ICS 167 Multiplayer Snake Project by:
-// Matt Ruiz        28465978    mpruiz@uci.edu
-// Luke Lohden      23739798    llohden@uci.edu
 // John Collins     75665849    jfcollin@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Gary Patches
 
 #pragma once
 #include "map.h"
@@ -26,13 +27,13 @@ private:
     sf::TcpSocket socket;
 
     // which player you are in list of players
-    int playerIndex;
+    int playerIndex = -1;
 
     // will be used as a holder for scores
     // and when getting input say players[playerIndex].getInput()
     std::vector<Player> players;
 
-    bool gameRunning = false;
+    std::string titleText;
 
     Map map;
     sf::Font font;
@@ -42,14 +43,8 @@ private:
     void init();
     void start();
 
-    char in[256];
-    std::size_t received_len;
-
-    void checkServerMessage();
-    void clearMessageBuffer();
-    
-    template <typename T>
-    void sendData(T data);
+    void checkServerMessages();
+    void processPacket(sf::Packet& packet);
 
     void render();
     void generateVertices(sf::VertexArray& verts);

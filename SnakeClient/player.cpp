@@ -1,13 +1,19 @@
 // ICS 167 Multiplayer Snake Project by:
-// Matt Ruiz        28465978    mpruiz@uci.edu
-// Luke Lohden      23739798    llohden@uci.edu
 // John Collins     75665849    jfcollin@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Gary Patches
 
 #include "player.h"
 #include "input.h"
 
 Player::Player(int id) : id{ id } {
-
+    points.clear();
+    inone = { 0,0 };
+    intwo = { 0,0 };
+    growth = 0;
+    score = 0;
+    dead = false;
 }
 
 void Player::checkInput() {
@@ -39,6 +45,7 @@ void Player::checkInput() {
             intwo = { 0,-1 };
         }
     }
+
 }
 
 void Player::spawn(int x, int y, int dx, int dy) {
@@ -54,6 +61,10 @@ void Player::spawn(int x, int y, int dx, int dy) {
 
 void Player::grow(int amount) {
     growth += amount;
+}
+
+std::vector<point>& Player::getPoints() {
+    return points;
 }
 
 point Player::move() {  // return -1,-1 if growing
@@ -84,4 +95,15 @@ point Player::getMove() {
         intwo = { 0,0 };
     }
     return points[0] + dir;
+}
+
+sf::Color Player::getColorFromID(int id) {
+    switch (id) {
+    case 0:
+        return sf::Color(255, 127, 51);
+    case 1:
+        return sf::Color(255, 255, 51);
+    default:
+        return sf::Color(255, 0, 255);
+    }
 }

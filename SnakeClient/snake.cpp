@@ -1,7 +1,8 @@
 // ICS 167 Multiplayer Snake Project by:
-// Matt Ruiz        28465978    mpruiz@uci.edu
-// Luke Lohden      23739798    llohden@uci.edu
 // John Collins     75665849    jfcollin@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Gary Patches
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
@@ -39,9 +40,6 @@ void Snake::init() {
         std::cout << "SOCKET CONNECTED!" << std::endl;
     }
     socket.setBlocking(false);
-
-    sendData("Hello from the client!");
-    sendData("Hello from the client!");
 
     // build window
     sf::ContextSettings settings;
@@ -89,15 +87,23 @@ void Snake::start() {
             running = false;
         }
 
-        checkServerMessage();
+        checkServerMessages();
 
-        if (gameRunning) {
-            players[playerIndex].checkInput();
+        if (playerIndex < 0 || playerIndex >= players.size()) {
+            // game not started yet or index set up wrong
+        } else if (window->hasFocus()) {
 
-            // send message to server containing your direction
+            Player& myp = players[playerIndex];
+            myp.checkInput();
+
+            sf::Packet packet;
+            packet << (sf::Uint8) 0;
+            packet << myp.inone;
+            packet << myp.intwo;
+            socket.send(packet);
 
         }
-        
+
         // renders the board and limits framerate
         render();
     }
@@ -108,57 +114,62 @@ void Snake::start() {
     delete window;
 }
 
-template <typename T>
-void Snake::sendData(T data) {
-    std::ostringstream oss;
-    oss << data;
-    std::string s = oss.str();
-    size_t len;
-    socket.send(s.c_str(), s.length(), len);
+void Snake::checkServerMessages() {
+    sf::Packet packet;
+    while (true) {
+        sf::Socket::Status status = socket.receive(packet);
+        if (status != sf::Socket::Done) {
+            return;
+        }
+        processPacket(packet);
+    }
 }
 
-void Snake::checkServerMessage() {
-    // check for scores from server
-    sf::Socket::Status status = socket.receive(in, sizeof(in), received_len);
-    if (status != sf::Socket::Done) {
-        clearMessageBuffer(); // not sure
-        return;
-    }
+void Snake::processPacket(sf::Packet& packet) {
+    sf::Uint8 b;
+    packet >> b;
+    int type = b;
 
-    // set null character to ignore anything after received length (non blocking sockets get some trash data at end)
-    in[received_len] = '\0';
-    std::string msg = std::string(in);
-    if (msg == "") {
-        return;
-    }
+    if (type == 0) {    // game state update
+        packet >> b;
+        int numPlayers = b;
 
-    std::istringstream mss(msg);
-    // for each message in stream
-    while (!mss.eof()) {
-        std::string update;
-        getline(mss, update, '.'); // full game updates are seperated by '.'
-        std::cout << update << std::endl;
+        map.generate();
+        players.clear();
+        for (int i = 0; i < numPlayers; ++i) {
+            packet >> b;
+            int playerid = b;
+            Player player(playerid);
+            packet >> b;
+            int playerScore = b;
+            player.score = playerScore;
+            packet >> player.dir;
+            packet >> player.inone;
+            packet >> player.intwo;
+            packet >> b;
+            int numPoints = b;
+            auto& points = player.getPoints();
+            for (int j = 0; j < numPoints; ++j) {
+                point p;
+                packet >> p;
+                points.push_back(p);
+                map.setTile(p, player.id + PLAYER);
+            }
+            players.push_back(player);
+        }
 
-        // now gotta split update up and process
-        // use another istringstream within the while probably
+        point p;
+        packet >> p;
+        map.setTile(p, FOOD);
 
-        //int type = msg.at(0) - '0';
-        //if (type == 0) {    // game state update from server
-        //} else if (type == 1){
-        //    playerIndex = msg.at(1) - '0';
-        //} else {
-        //    std::cout << "unknown message type received from server" << std::endl;
-        //}
-    }
+        packet >> b;
+        playerIndex = b;
 
-    clearMessageBuffer();
 
-}
-
-void Snake::clearMessageBuffer() {
-    int len = sizeof(in) / sizeof(char);
-    for (int i = 0; i < len; ++i) {
-        in[i] = '\0';
+    } else if (type == 1) { // update title text
+        packet >> titleText;
+    } else {
+        std::cout << "Unknown packet type received from server" << std::endl;
     }
 }
 
@@ -172,7 +183,43 @@ void Snake::render() {
 
     window->draw(verts);
 
-    // add text back in later
+    for (size_t i = 0; i < players.size(); ++i) {
+        std::ostringstream oss;
+
+        Player& p = players[i];
+        oss << "P " << (p.id + 1) << " : " << p.score << " ";
+        text.setString(oss.str());
+        sf::Color c = Player::getColorFromID(p.id);
+        text.setColor(c);
+        if (i == 0) {
+            text.setPosition(sf::Vector2f(0.0f, 0.0f));
+        } else {
+            sf::FloatRect fr = text.getLocalBounds();
+            text.setPosition(sf::Vector2f(WIDTH - fr.width, 0.0f));
+        }
+
+        float rectW = 150.0f;
+        if (i == playerIndex) {
+            sf::RectangleShape rs;
+            if (i == 0) {
+                rs.setPosition(sf::Vector2f(0.0f, 0.0f));
+            } else {
+                rs.setPosition(sf::Vector2f(WIDTH - rectW, 0.0f));
+            }
+            rs.setSize(sf::Vector2f(rectW, 50.0f));
+            rs.setFillColor(sf::Color::Black);
+            window->draw(rs);
+        }
+
+        window->draw(text);
+    }
+
+    text.setColor(sf::Color(200, 255, 255));
+    text.setString(titleText);
+    sf::FloatRect fr = text.getLocalBounds();
+    text.setPosition(sf::Vector2f(WIDTH / 2 - fr.width / 2.0f, 0.0f));
+    window->draw(text);
+
 
     window->display();
 }
@@ -199,15 +246,8 @@ void Snake::generateVertices(sf::VertexArray& verts) {
                 color = sf::Color(0, 255, 0);
                 break;
 
-                // temp colors like this for now
-            case PLAYER:
-                color = sf::Color(255, 127, 51);
-                break;
-            case PLAYER+1:
-                color = sf::Color(255, 255, 51);
-                break;
             default:
-                color = sf::Color(255, 0, 255);
+                color = Player::getColorFromID(id - PLAYER);
                 break;
             }
 

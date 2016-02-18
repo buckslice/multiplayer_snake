@@ -1,7 +1,8 @@
 // ICS 167 Multiplayer Snake Project by:
-// Matt Ruiz        28465978    mpruiz@uci.edu
-// Luke Lohden      23739798    llohden@uci.edu
 // John Collins     75665849    jfcollin@uci.edu
+// Luke Lohden      23739798    llohden@uci.edu
+// Matt Ruiz        28465978    mpruiz@uci.edu
+// Gary Patches
 
 #pragma once
 #include "SFML/Graphics.hpp"
@@ -14,9 +15,10 @@ public:
 
     point getPos();
     std::vector<point>& getPoints();
-    point getMove();
+    point getMove();    // calculates dir based on inputs
 
     point move();
+    point dir, inone, intwo;
 
     void spawn(int x, int y, int dx, int dy);
 
@@ -26,9 +28,8 @@ public:
     int id;
     int score;
 
-    sf::Color color;
+    static sf::Color getColorFromID(int id);
 private:
     std::vector<point> points;
-    point dir, inone, intwo;
     int growth;
 };
