@@ -2,7 +2,7 @@
 // John Collins     75665849    jfcollin@uci.edu
 // Luke Lohden      23739798    llohden@uci.edu
 // Matt Ruiz        28465978    mpruiz@uci.edu
-// Gary Patches
+// Gary Machlis
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
@@ -58,16 +58,17 @@ void Snake::init() {
     window = new sf::RenderWindow(sf::VideoMode(WIDTH, HEIGHT), "Snake Server", sf::Style::Default, settings);
     window->setFramerateLimit(60);
 
+    // load font
     if (!font.loadFromFile("OCRAEXT.TTF")) {
         std::cout << "FAILED LOADING FONT" << std::endl;
     }
+    text.setFont(font);
+    text.setCharacterSize(30);
 
+    // set up map
     map = Map((int)(WIDTH / TILE), (int)(HEIGHT / TILE) - 1);
     map.pos = { 0,(int)TILE };
     map.generate();
-
-    text.setFont(font);
-    text.setCharacterSize(30);
 
 }
 
@@ -97,6 +98,8 @@ void Snake::checkNewConnections() {
 
         players.push_back(Player(freeID));    // player ids are 0 indexed
         std::cout << "New client connected, set as player " << players.size() << std::endl;
+
+        // start game if enough players
         if (players.size() >= 2) {
             startGame(2.0f);
         }
@@ -109,11 +112,12 @@ void Snake::checkClientMessages() {
     for (size_t i = 0, len = clients.size() - 1; i < len; ++i) {
         sf::Packet packet;
 
+        // loop until all packets are processed
         while (true) {
             // get packet from client socket
             sf::Socket::Status status = clients[i]->receive(packet);
 
-            // if no data from the client this frame or some sort of error then continue
+            // if no data from the client this frame or some sort of error then continue (by breaking infinite while)
             if (status == sf::Socket::NotReady || status == sf::Socket::Error) {
                 break;
             } else if (status == sf::Socket::Disconnected) {    // if client disconnected
@@ -163,7 +167,7 @@ void Snake::broadcastPacket(sf::Packet& packet) {
 }
 
 void Snake::broadcastGameState() {
-    // PACKAGE LAYOUT
+    // PACKET LAYOUT
     // type
     // number of players
       // for each player
@@ -263,6 +267,7 @@ void Snake::start() {
 
         checkClientMessages();
 
+        // send packet to clients to update title message
         sf::Packet titlePacket;
         titlePacket << (sf::Uint8) 1;   // message type
         titlePacket << getTitle();
@@ -352,6 +357,7 @@ int Snake::getWinner() {
     return winner;
 }
 
+// returns what the title should be based off gametime and if a winner has been found
 std::string Snake::getTitle() {
     std::ostringstream oss;
     if (gameTime < -1.0f) {
@@ -371,6 +377,7 @@ std::string Snake::getTitle() {
 }
 
 void Snake::render() {
+    // clear the window to same color as wall tile
     window->clear(sf::Color(12, 26, 51));
 
     sf::VertexArray verts;
@@ -380,6 +387,7 @@ void Snake::render() {
 
     window->draw(verts);
 
+    // draw player text (currently hardcoded for two players)
     for (size_t i = 0; i < players.size(); ++i) {
         std::ostringstream oss;
 
@@ -387,6 +395,8 @@ void Snake::render() {
         oss << "P " << (p.id + 1) << " : " << p.score << " ";
         text.setString(oss.str());
         text.setColor(Player::getColorFromID(p.id));
+        // should change this if here to just something like this below
+        // text.setPosition(sf::Vector2f(i * WIDTH/numPlayers, 0.0f));
         if (i == 0) {
             text.setPosition(sf::Vector2f(0.0f, 0.0f));
         } else {
@@ -396,16 +406,18 @@ void Snake::render() {
         window->draw(text);
     }
 
+    // draw title text
     text.setColor(sf::Color(200, 255, 255));
     text.setString(getTitle());
     sf::FloatRect fr = text.getLocalBounds();
     text.setPosition(sf::Vector2f(WIDTH / 2 - fr.width / 2.0f, 0.0f));
     window->draw(text);
 
+    // swap buffers
     window->display();
 }
 
-
+// builds vertex array from map
 void Snake::generateVertices(sf::VertexArray& verts) {
     for (int y = 0; y < map.getH(); ++y) {
         for (int x = 0; x < map.getW(); ++x) {

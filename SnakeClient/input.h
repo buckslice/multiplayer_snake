@@ -2,7 +2,7 @@
 // John Collins     75665849    jfcollin@uci.edu
 // Luke Lohden      23739798    llohden@uci.edu
 // Matt Ruiz        28465978    mpruiz@uci.edu
-// Gary Patches
+// Gary Machlis
 
 #pragma once
 #include <SFML/Window/Keyboard.hpp>

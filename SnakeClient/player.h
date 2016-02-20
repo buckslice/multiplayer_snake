@@ -2,7 +2,7 @@
 // John Collins     75665849    jfcollin@uci.edu
 // Luke Lohden      23739798    llohden@uci.edu
 // Matt Ruiz        28465978    mpruiz@uci.edu
-// Gary Patches
+// Gary Machlis
 
 #pragma once
 #include "SFML/Graphics.hpp"
@@ -27,7 +27,7 @@ public:
     void grow(int amount);
 
     bool dead;
-    int id;     // tile id starting at 3
+    int id;
     int score;
 
     static sf::Color Player::getColorFromID(int id);

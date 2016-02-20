@@ -2,7 +2,7 @@
 // John Collins     75665849    jfcollin@uci.edu
 // Luke Lohden      23739798    llohden@uci.edu
 // Matt Ruiz        28465978    mpruiz@uci.edu
-// Gary Patches
+// Gary Machlis
 
 #include "map.h"
 #include <random>
@@ -46,20 +46,6 @@ void Map::setTile(point p, int id) {
 
 bool Map::isWalkable(int x, int y) {
     return getTile(x, y) == 0;
-}
-
-void Map::spawnRandom(int id) {
-    std::vector<point> open;
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            if (map[x + y*w] == 0) {
-                open.push_back({ x,y });
-            }
-        }
-    }
-
-    std::uniform_int_distribution<int> uni(0, open.size() - 1);
-    setTile(open[uni(rng)], id);
 }
 
 void Map::generate() {

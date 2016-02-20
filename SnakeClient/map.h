@@ -2,7 +2,7 @@
 // John Collins     75665849    jfcollin@uci.edu
 // Luke Lohden      23739798    llohden@uci.edu
 // Matt Ruiz        28465978    mpruiz@uci.edu
-// Gary Patches
+// Gary Machlis
 
 #pragma once
 #include <vector>
@@ -20,14 +20,13 @@ public:
 
     bool isWalkable(int x, int y);
 
+    // generates an empty board
     void generate();
-
-    void spawnRandom(int id);
 
     int getW();
     int getH();
 
-    point pos;
+    point pos;  // offset of map origin
 
 private:
     std::vector<int> map;

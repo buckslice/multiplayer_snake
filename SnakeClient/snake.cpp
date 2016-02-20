@@ -2,7 +2,7 @@
 // John Collins     75665849    jfcollin@uci.edu
 // Luke Lohden      23739798    llohden@uci.edu
 // Matt Ruiz        28465978    mpruiz@uci.edu
-// Gary Patches
+// Gary Machlis
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
@@ -18,6 +18,7 @@ Snake::Snake() {
 }
 
 void Snake::init() {
+    // get port
     std::string port;
     std::cout << "Enter port number: ";
     std::getline(std::cin, port);
@@ -26,6 +27,7 @@ void Snake::init() {
         std::cout << "defaulting to port: " << port << std::endl;
     }
 
+    // get ip address
     std::string ip;
     std::cout << "Enter IP address: ";
     std::getline(std::cin, ip);
@@ -34,10 +36,11 @@ void Snake::init() {
         std::cout << "defaulting to ip: " << ip << std::endl;
     }
 
-    if (socket.connect(ip, std::atoi(port.c_str())) != sf::Socket::Done) {
-        std::cout << "SOCKET FAILED TO CONNECT!" << std::endl;
-    } else {
+    // try to connect to server
+    if (socket.connect(ip, std::atoi(port.c_str())) == sf::Socket::Done) {
         std::cout << "SOCKET CONNECTED!" << std::endl;
+    } else {
+        std::cout << "SOCKET FAILED TO CONNECT!" << std::endl;
     }
     socket.setBlocking(false);
 
@@ -49,16 +52,18 @@ void Snake::init() {
     window = new sf::RenderWindow(sf::VideoMode(WIDTH, HEIGHT), "Snake Client", sf::Style::Default, settings);
     window->setFramerateLimit(60);
 
+    // load font
     if (!font.loadFromFile("OCRAEXT.TTF")) {
         std::cout << "FAILED LOADING FONT" << std::endl;
     }
+    text.setFont(font);
+    text.setCharacterSize(30);
 
+    // set up map
     map = Map((int)(WIDTH / TILE), (int)(HEIGHT / TILE) - 1);
     map.pos = { 0,(int)TILE };
     map.generate();
 
-    text.setFont(font);
-    text.setCharacterSize(30);
 }
 
 void Snake::start() {
@@ -89,10 +94,8 @@ void Snake::start() {
 
         checkServerMessages();
 
-        if (playerIndex < 0 || playerIndex >= players.size()) {
-            // game not started yet or index set up wrong
-        } else if (window->hasFocus()) {
-
+        // make sure index is valid and window is focused
+        if (playerIndex >= 0 && playerIndex < players.size() && window->hasFocus()) {
             Player& myp = players[playerIndex];
             myp.checkInput();
 
@@ -101,7 +104,6 @@ void Snake::start() {
             packet << myp.inone;
             packet << myp.intwo;
             socket.send(packet);
-
         }
 
         // renders the board and limits framerate
@@ -116,7 +118,7 @@ void Snake::start() {
 
 void Snake::checkServerMessages() {
     sf::Packet packet;
-    while (true) {
+    while (true) {  // loop until you run out of packets in buffer
         sf::Socket::Status status = socket.receive(packet);
         if (status != sf::Socket::Done) {
             return;
@@ -125,12 +127,16 @@ void Snake::checkServerMessages() {
     }
 }
 
+// process packet from server
 void Snake::processPacket(sf::Packet& packet) {
-    sf::Uint8 b;
+    sf::Uint8 b;    // make sure to unpack it as type it was packed as
     packet >> b;
     int type = b;
 
     if (type == 0) {    // game state update
+        // packet layout defined in server snake.cpp
+        // builds local player vector for getting input and score reference
+        // will be used later to extrapolate player movement during lag
         packet >> b;
         int numPlayers = b;
 
@@ -157,14 +163,12 @@ void Snake::processPacket(sf::Packet& packet) {
             }
             players.push_back(player);
         }
-
         point p;
         packet >> p;
         map.setTile(p, FOOD);
 
         packet >> b;
         playerIndex = b;
-
 
     } else if (type == 1) { // update title text
         packet >> titleText;
@@ -183,6 +187,8 @@ void Snake::render() {
 
     window->draw(verts);
 
+    // render player score text
+    // currently hardcoded for two players (will need to be changed eventually)
     for (size_t i = 0; i < players.size(); ++i) {
         std::ostringstream oss;
 
@@ -198,6 +204,7 @@ void Snake::render() {
             text.setPosition(sf::Vector2f(WIDTH - fr.width, 0.0f));
         }
 
+        // add black box to this clients player score
         float rectW = 150.0f;
         if (i == playerIndex) {
             sf::RectangleShape rs;
@@ -211,19 +218,22 @@ void Snake::render() {
             window->draw(rs);
         }
 
+        // draw text after box
         window->draw(text);
     }
 
+    // set title message text
     text.setColor(sf::Color(200, 255, 255));
     text.setString(titleText);
     sf::FloatRect fr = text.getLocalBounds();
     text.setPosition(sf::Vector2f(WIDTH / 2 - fr.width / 2.0f, 0.0f));
     window->draw(text);
 
-
+    // swap buffers
     window->display();
 }
 
+// generates a vertex array from map data
 void Snake::generateVertices(sf::VertexArray& verts) {
     for (int y = 0; y < map.getH(); ++y) {
         for (int x = 0; x < map.getW(); ++x) {
@@ -260,7 +270,6 @@ void Snake::generateVertices(sf::VertexArray& verts) {
 }
 
 int main() {
-
     Snake game;
     return 0;
 }

@@ -2,7 +2,7 @@
 // John Collins     75665849    jfcollin@uci.edu
 // Luke Lohden      23739798    llohden@uci.edu
 // Matt Ruiz        28465978    mpruiz@uci.edu
-// Gary Patches
+// Gary Machlis
 
 #include "map.h"
 #include <random>
@@ -49,6 +49,7 @@ bool Map::isWalkable(int x, int y) {
 }
 
 point Map::spawnRandom(int id) {
+    // find all open ground square points
     std::vector<point> open;
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
@@ -57,7 +58,7 @@ point Map::spawnRandom(int id) {
             }
         }
     }
-
+    // get random point from vector
     std::uniform_int_distribution<int> uni(0, open.size() - 1);
     point pos = open[uni(rng)];
     setTile(pos, id);
