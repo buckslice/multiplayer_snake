@@ -163,27 +163,18 @@ void Snake::processPacket(sf::Packet& packet, int index) {
     }
 }
 
-void Snake::broadcastPacket(sf::Packet& packet) {
+void Snake::enqueuePacket(sf::Packet& packet) {
 
-	// ARTIFICIAL LAG:
-	int delayProportion = rand() % 100; // Used for assigning probability to lag
-	if (delayProportion < 75) // 75% of the time...
-	{
-		int delay = rand() % 500; // The delay is less than 500 milliseconds
-		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-	}
-	else // 25% of the time...
-	{
-		int delay = rand() % 2000; // The delay is less than 2000 milliseconds
-		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-	}
+	delayQueue.push(packet);	//enqueue to delay queue
 
-    for (size_t i = 0; i < clients.size() - 1; ++i) {
-        clients[i]->send(packet);
-    }
+	broadcast();				// Ask broadcast to send a packet out (she may not)
+
+    //for (size_t i = 0; i < clients.size() - 1; ++i) {
+    //    clients[i]->send(packet);
+    //}
 }
 
-void Snake::broadcastGameState() {
+void Snake::enqueueGameState() {
     // PACKET LAYOUT
     // type
     // number of players
@@ -195,19 +186,6 @@ void Snake::broadcastGameState() {
         // points in snake
     // food pos
     // id of client in player list
-
-	// ARTIFICIAL LAG:
-	int delayProportion = rand() % 100; // Used for assigning probability to lag
-	if (delayProportion < 75) // 75% of the time...
-	{
-		int delay = rand() % 500; // The delay is less than 500 milliseconds
-		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-	}
-	else // 25% of the time...
-	{
-		int delay = rand() % 2000; // The delay is less than 2000 milliseconds
-		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-	}
 
     sf::Packet packet;
 
@@ -231,12 +209,34 @@ void Snake::broadcastGameState() {
     }
     packet << foodPos;
 
-    // send game state to each client
-    for (size_t i = 0; i < clients.size() - 1; ++i) {
-        sf::Packet clientPacket = packet;
-        clientPacket << (sf::Uint8) i;
-        clients[i]->send(clientPacket);
-    }
+    //// send game state to each client
+    //for (size_t i = 0; i < clients.size() - 1; ++i) {
+    //    sf::Packet clientPacket = packet;
+    //    clientPacket << (sf::Uint8) i;
+    //    clients[i]->send(clientPacket);
+    //}
+
+	delayQueue.push(packet);
+	broadcast();
+}
+
+void Snake::broadcast()
+{
+	auto currentTime = std::chrono::high_resolution_clock::now();
+
+	if (currentTime > delayTime)
+	{
+		sf::Packet packet = delayQueue.front();
+		delayQueue.pop();
+
+		// send game state to each client
+		for (size_t i = 0; i < clients.size() - 1; ++i)
+		{
+			sf::Packet clientPacket = packet;
+			clientPacket << (sf::Uint8) i;
+			clients[i]->send(clientPacket);
+		}
+	}
 }
 
 // progress state of game by one move
@@ -271,6 +271,12 @@ void Snake::start() {
         // increment gameTime
         float delta = frameTime.restart().asSeconds();
 
+		// Set delayTime
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		std::chrono::milliseconds delay = std::chrono::milliseconds(0); /*std::chrono::milliseconds(rand() % 50);*/
+		delayTime = currentTime + delay;
+
+
         // process window events
         sf::Event e;
         while (window->pollEvent(e)) {
@@ -301,7 +307,7 @@ void Snake::start() {
         sf::Packet titlePacket;
         titlePacket << (sf::Uint8) 1;   // message type
         titlePacket << getTitle();
-        broadcastPacket(titlePacket);
+        enqueuePacket(titlePacket);
 
         if (gameRunning) {
             gameTime += delta;
@@ -318,13 +324,13 @@ void Snake::start() {
                 }
 
                 // send game state back to clients
-                broadcastGameState();
+                enqueueGameState();
             }
 
             // if game ended then restart after delay
             if (winner != 0 && gameTime > -1.0f) {
                 startGame(1.0f);
-                broadcastGameState();
+                enqueueGameState();
             }
         }
 

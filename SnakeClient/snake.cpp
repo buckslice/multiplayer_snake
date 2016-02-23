@@ -106,19 +106,19 @@ void Snake::start() {
             packet << myp.inone;
             packet << myp.intwo;
 
-			// ARTIFICIAL LAG:
-			int delayProportion = rand() % 100; // Used for assigning probability to lag
-			if (delayProportion < 75) // 75% of the time...
-			{
-				int delay = rand() % 500; // The delay is less than 500 milliseconds
-				std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-			}
-			else // 25% of the time...
-			{
-				int delay = rand() % 2000; // The delay is less than 2000 milliseconds
-				std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-			}
-
+			//// ARTIFICIAL LAG:
+			//int delayProportion = rand() % 100; // Used for assigning probability to lag
+			//if (delayProportion < 75) // 75% of the time...
+			//{
+			//	int delay = rand() % 25; // The delay is less than 500 milliseconds
+			//	std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+			//}
+			//else // 25% of the time...
+			//{
+			//	int delay = rand() % 50; // The delay is less than 2000 milliseconds
+			//	std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+			//}
+		
 
             socket.send(packet);
         }
@@ -140,7 +140,8 @@ void Snake::checkServerMessages() {
         if (status != sf::Socket::Done) {
             return;
         }
-        processPacket(packet);
+		processPacket(packet);
+		
     }
 }
 
