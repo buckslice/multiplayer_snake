@@ -9,6 +9,9 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <chrono>
+#include <thread>
+
 #include "snake.h"
 
 Snake::Snake() {
@@ -161,6 +164,20 @@ void Snake::processPacket(sf::Packet& packet, int index) {
 }
 
 void Snake::broadcastPacket(sf::Packet& packet) {
+
+	// ARTIFICIAL LAG:
+	int delayProportion = rand() % 100; // Used for assigning probability to lag
+	if (delayProportion < 75) // 75% of the time...
+	{
+		int delay = rand() % 500; // The delay is less than 500 milliseconds
+		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+	}
+	else // 25% of the time...
+	{
+		int delay = rand() % 2000; // The delay is less than 2000 milliseconds
+		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+	}
+
     for (size_t i = 0; i < clients.size() - 1; ++i) {
         clients[i]->send(packet);
     }
@@ -178,6 +195,19 @@ void Snake::broadcastGameState() {
         // points in snake
     // food pos
     // id of client in player list
+
+	// ARTIFICIAL LAG:
+	int delayProportion = rand() % 100; // Used for assigning probability to lag
+	if (delayProportion < 75) // 75% of the time...
+	{
+		int delay = rand() % 500; // The delay is less than 500 milliseconds
+		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+	}
+	else // 25% of the time...
+	{
+		int delay = rand() % 2000; // The delay is less than 2000 milliseconds
+		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+	}
 
     sf::Packet packet;
 
