@@ -7,9 +7,21 @@
 #pragma once
 #include <SFML/Network.hpp>
 #include <queue>
-#include <chrono>
+#include <random>
 #include "map.h"
 #include "player.h"
+
+struct DelayedPacket {
+    sf::Packet packet;
+    int clientIndex;
+    float timeToSend;
+
+    DelayedPacket(sf::Packet p, int i, float t) {
+        packet = p;
+        clientIndex = i;
+        timeToSend = t;
+    }
+};
 
 class Snake {
 public:
@@ -28,9 +40,6 @@ public:
     static const int FOOD = 2;
     static const int PLAYER = 3;
 private:
-	std::chrono::high_resolution_clock::time_point delayTime;
-	std::queue<sf::Packet> delayQueue; // Used for sending out packets on a delay
-
     sf::RenderWindow* window;
 
     sf::TcpListener listener;  // network listener
@@ -61,9 +70,24 @@ private:
     const float tickTime = 0.1f;  // defines how quickly game moves // should slow down when testing
 
     void gameTick();    // progresses state of game by one game tick
-	void broadcast();	// broadcasts a packet in the buffer with delay to all clients
-    void enqueueGameState();  // enqueues a gamestate packet to the delayQueue
-    void enqueuePacket(sf::Packet& packet);    // sends given packet to all clients
+
+    void broadcastGameState();
+    void broadcastPacket(sf::Packet& packet);
+
+    void checkAndSendDelayed(); // checks delayedQueue and sends packets that have waited long enough
+
+
+    // latency simulation
+    bool addLatency = true;
+
+	std::queue<DelayedPacket> delayQueue; // Used for sending out packets on a delay
+    // make another queue for incoming packets probs
+
+    float getDelay();   // returns random uniform delay
+    sf::Clock delayClock;
+    std::mt19937 rng;    
+
+
     int getWinner();    // sets winner
     void startGame(float delay);    // resets game to start state with a given delay
 

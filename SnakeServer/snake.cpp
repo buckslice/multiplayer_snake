@@ -30,6 +30,7 @@ Snake::~Snake() {
     clients.erase(clients.begin(), clients.end());
 
     delete window;
+
 }
 
 
@@ -73,6 +74,10 @@ void Snake::init() {
     map.pos = { 0,(int)TILE };
     map.generate();
 
+    // init latency simulation stuff
+    delayClock.restart();
+    std::random_device rd;
+    rng.seed(rd());
 }
 
 void Snake::checkNewConnections() {
@@ -163,27 +168,26 @@ void Snake::processPacket(sf::Packet& packet, int index) {
     }
 }
 
-void Snake::enqueuePacket(sf::Packet& packet) {
-
-	delayQueue.push(packet);	//enqueue to delay queue
-
-	broadcast();				// Ask broadcast to send a packet out (she may not)
-
-    //for (size_t i = 0; i < clients.size() - 1; ++i) {
-    //    clients[i]->send(packet);
-    //}
+void Snake::broadcastPacket(sf::Packet& packet) {
+    for (size_t i = 0; i < clients.size() - 1; ++i) {
+        if (addLatency) {
+            delayQueue.push(DelayedPacket(packet, i, getDelay()));
+        } else {
+            clients[i]->send(packet);
+        }
+    }
 }
 
-void Snake::enqueueGameState() {
+void Snake::broadcastGameState() {
     // PACKET LAYOUT
     // type
     // number of players
-      // for each player
-        // player id
-        // player score
-        // player dir, and inputs
-        // length of snake
-        // points in snake
+    // for each player
+    // player id
+    // player score
+    // player dir, and inputs
+    // length of snake
+    // points in snake
     // food pos
     // id of client in player list
 
@@ -209,35 +213,40 @@ void Snake::enqueueGameState() {
     }
     packet << foodPos;
 
-    //// send game state to each client
-    //for (size_t i = 0; i < clients.size() - 1; ++i) {
-    //    sf::Packet clientPacket = packet;
-    //    clientPacket << (sf::Uint8) i;
-    //    clients[i]->send(clientPacket);
-    //}
-
-	delayQueue.push(packet);
-	broadcast();
+    // send game state to each client
+    for (size_t i = 0; i < clients.size() - 1; ++i) {
+        sf::Packet clientPacket = packet;
+        clientPacket << (sf::Uint8) i;
+        if (addLatency) {
+            delayQueue.push(DelayedPacket(clientPacket, i, getDelay()));
+        } else {
+            clients[i]->send(clientPacket);
+        }
+    }
 }
 
-void Snake::broadcast()
-{
-	auto currentTime = std::chrono::high_resolution_clock::now();
-
-	if (currentTime > delayTime)
-	{
-		sf::Packet packet = delayQueue.front();
-		delayQueue.pop();
-
-		// send game state to each client
-		for (size_t i = 0; i < clients.size() - 1; ++i)
-		{
-			sf::Packet clientPacket = packet;
-			clientPacket << (sf::Uint8) i;
-			clients[i]->send(clientPacket);
-		}
-	}
+float Snake::getDelay() {
+    std::uniform_real_distribution<float> uni(1.0f, 3.0f);
+    return delayClock.getElapsedTime().asSeconds() + uni(rng);
 }
+
+void Snake::checkAndSendDelayed() {
+    if (!addLatency || delayQueue.empty()) {
+        return;
+    }
+    float curTime = delayClock.getElapsedTime().asSeconds();
+
+    DelayedPacket dp = delayQueue.front();
+    while (curTime > dp.timeToSend) {
+        delayQueue.pop();
+
+        clients[dp.clientIndex]->send(dp.packet);
+
+        if (delayQueue.empty()) return;
+        dp = delayQueue.front();
+    }
+}
+
 
 // progress state of game by one move
 void Snake::gameTick() {
@@ -271,12 +280,6 @@ void Snake::start() {
         // increment gameTime
         float delta = frameTime.restart().asSeconds();
 
-		// Set delayTime
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		std::chrono::milliseconds delay = std::chrono::milliseconds(0); /*std::chrono::milliseconds(rand() % 50);*/
-		delayTime = currentTime + delay;
-
-
         // process window events
         sf::Event e;
         while (window->pollEvent(e)) {
@@ -307,7 +310,7 @@ void Snake::start() {
         sf::Packet titlePacket;
         titlePacket << (sf::Uint8) 1;   // message type
         titlePacket << getTitle();
-        enqueuePacket(titlePacket);
+        broadcastPacket(titlePacket);
 
         if (gameRunning) {
             gameTime += delta;
@@ -324,15 +327,17 @@ void Snake::start() {
                 }
 
                 // send game state back to clients
-                enqueueGameState();
+                broadcastGameState();
             }
 
             // if game ended then restart after delay
             if (winner != 0 && gameTime > -1.0f) {
                 startGame(1.0f);
-                enqueueGameState();
+                broadcastGameState();
             }
         }
+
+        checkAndSendDelayed();
 
         // render board and limits framerate
         render();
