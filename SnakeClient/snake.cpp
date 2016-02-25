@@ -62,7 +62,7 @@ void Snake::init() {
     text.setCharacterSize(30);
 
     // set up map
-    map = Map((int)(WIDTH / TILE), (int)(HEIGHT / TILE) - 1);
+    map = Map((int)(WIDTH / TILE - 8), (int)(HEIGHT / TILE) - 1);
     map.pos = { 0,(int)TILE };
     map.generate();
 
@@ -71,6 +71,7 @@ void Snake::init() {
 void Snake::start() {
 
     sf::Clock frameTime;
+	sf::Clock gameTime;
     bool running = true;
     while (running) {
         float delta = frameTime.restart().asSeconds();
@@ -105,23 +106,22 @@ void Snake::start() {
             packet << (sf::Uint8) 0;
             packet << myp.inone;
             packet << myp.intwo;
-
-			//// ARTIFICIAL LAG:
-			//int delayProportion = rand() % 100; // Used for assigning probability to lag
-			//if (delayProportion < 75) // 75% of the time...
-			//{
-			//	int delay = rand() % 25; // The delay is less than 500 milliseconds
-			//	std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-			//}
-			//else // 25% of the time...
-			//{
-			//	int delay = rand() % 50; // The delay is less than 2000 milliseconds
-			//	std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-			//}
 		
 
             socket.send(packet);
         }
+
+		// send ping message
+		if (!pingWait)
+		{
+			pingWait = true;
+			sf::Packet pingPacket;
+			auto currentTime = std::chrono::system_clock::now().time_since_epoch();
+			pingTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
+			pingPacket << (sf::Uint8)2;
+			socket.send(pingPacket);
+		}
+
 
         // renders the board and limits framerate
         render();
@@ -190,7 +190,22 @@ void Snake::processPacket(sf::Packet& packet) {
 
     } else if (type == 1) { // update title text
         packet >> titleText;
-    } else {
+	}
+
+	else if (type == 2) 
+	{
+		auto currentTime = std::chrono::system_clock::now().time_since_epoch();
+		long long time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
+		pingVector.push_back(time - pingTime);
+		pingWait = false;
+
+		if (pingVector.size() > 100)
+		{
+			pingVector.erase(pingVector.begin());
+		}
+	}
+	
+	else {
         std::cout << "Unknown packet type received from server" << std::endl;
     }
 }
@@ -215,30 +230,40 @@ void Snake::render() {
         text.setString(oss.str());
         sf::Color c = Player::getColorFromID(p.id);
         text.setColor(c);
-        if (i == 0) {
-            text.setPosition(sf::Vector2f(0.0f, 0.0f));
-        } else {
-            sf::FloatRect fr = text.getLocalBounds();
-            text.setPosition(sf::Vector2f(WIDTH - fr.width, 0.0f));
-        }
+            
+		text.setPosition(sf::Vector2f(800.0f, i * 50.0f + 50.0f));
+      
 
         // add black box to this clients player score
-        float rectW = 150.0f;
+        float rectW = 200.0f;
         if (i == playerIndex) {
             sf::RectangleShape rs;
-            if (i == 0) {
-                rs.setPosition(sf::Vector2f(0.0f, 0.0f));
-            } else {
-                rs.setPosition(sf::Vector2f(WIDTH - rectW, 0.0f));
-            }
+            rs.setPosition(sf::Vector2f(800.0f, i * 50.0f + 50.0f));
             rs.setSize(sf::Vector2f(rectW, 50.0f));
             rs.setFillColor(sf::Color::Black);
             window->draw(rs);
+
         }
+		
 
         // draw text after box
         window->draw(text);
     }
+
+	// Display ping in top left corner of the screen
+	long long ping_avg = 0;
+	for (size_t i = 0; i < pingVector.size(); i++)
+	{
+		ping_avg += pingVector[i];
+	}
+	if (pingVector.size() > 0)
+	{
+		ping_avg /= pingVector.size();
+	}
+	text.setString("Ping: " + std::to_string(ping_avg) + " ms");
+	text.setPosition(sf::Vector2f(0.0f, 0.0f));
+	window->draw(text);
+
 
     // set title message text
     text.setColor(sf::Color(200, 255, 255));

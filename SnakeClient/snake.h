@@ -13,7 +13,7 @@ class Snake {
 public:
     Snake();
 
-    const int WIDTH = 800;
+    const int WIDTH = 1000;
     const int HEIGHT = 600;
     const float TILE = 25.0f;
 
@@ -34,6 +34,11 @@ private:
     std::vector<Player> players;
 
     std::string titleText;
+	std::string pingText;
+
+	long long pingTime;
+	bool pingWait = false;
+	std::vector<long long> pingVector;
 
     Map map;
     sf::Font font;
