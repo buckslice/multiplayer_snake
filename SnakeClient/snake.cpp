@@ -71,7 +71,7 @@ void Snake::init() {
 void Snake::start() {
 
     sf::Clock frameTime;
-	sf::Clock gameTime;
+    sf::Clock gameTime;
     bool running = true;
     while (running) {
         float delta = frameTime.restart().asSeconds();
@@ -95,7 +95,9 @@ void Snake::start() {
             running = false;
         }
 
-        checkServerMessages();
+        if (!checkServerMessages()) {
+            running = false;
+        }
 
         // make sure index is valid and window is focused
         if (playerIndex >= 0 && playerIndex < players.size() && window->hasFocus()) {
@@ -106,21 +108,19 @@ void Snake::start() {
             packet << (sf::Uint8) 0;
             packet << myp.inone;
             packet << myp.intwo;
-		
 
             socket.send(packet);
         }
 
-		// send ping message
-		if (!pingWait)
-		{
-			pingWait = true;
-			sf::Packet pingPacket;
-			auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-			pingTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
-			pingPacket << (sf::Uint8)2;
-			socket.send(pingPacket);
-		}
+        // send ping message
+        if (!pingWait) {
+            pingWait = true;
+            sf::Packet pingPacket;
+            auto currentTime = std::chrono::system_clock::now().time_since_epoch();
+            pingTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
+            pingPacket << (sf::Uint8)2;
+            socket.send(pingPacket);
+        }
 
 
         // renders the board and limits framerate
@@ -133,16 +133,18 @@ void Snake::start() {
     delete window;
 }
 
-void Snake::checkServerMessages() {
+bool Snake::checkServerMessages() {
     sf::Packet packet;
     while (true) {  // loop until you run out of packets in buffer
         sf::Socket::Status status = socket.receive(packet);
-        if (status != sf::Socket::Done) {
-            return;
+        if (status == sf::Socket::NotReady || status == sf::Socket::Error) {
+            return true;
+        } else if (status == sf::Socket::Disconnected) {
+            return false;
         }
-		processPacket(packet);
-		
+        processPacket(packet);
     }
+    return true;
 }
 
 // process packet from server
@@ -190,22 +192,16 @@ void Snake::processPacket(sf::Packet& packet) {
 
     } else if (type == 1) { // update title text
         packet >> titleText;
-	}
+    } else if (type == 2) {
+        auto currentTime = std::chrono::system_clock::now().time_since_epoch();
+        long long time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
+        pingVector.push_back(time - pingTime);
+        pingWait = false;
 
-	else if (type == 2) 
-	{
-		auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-		long long time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
-		pingVector.push_back(time - pingTime);
-		pingWait = false;
-
-		if (pingVector.size() > 100)
-		{
-			pingVector.erase(pingVector.begin());
-		}
-	}
-	
-	else {
+        if (pingVector.size() > 100) {   // lowered this for when laggy
+            pingVector.erase(pingVector.begin());
+        }
+    } else {
         std::cout << "Unknown packet type received from server" << std::endl;
     }
 }
@@ -230,9 +226,8 @@ void Snake::render() {
         text.setString(oss.str());
         sf::Color c = Player::getColorFromID(p.id);
         text.setColor(c);
-            
-		text.setPosition(sf::Vector2f(800.0f, i * 50.0f + 50.0f));
-      
+
+        text.setPosition(sf::Vector2f(800.0f, i * 50.0f + 50.0f));
 
         // add black box to this clients player score
         float rectW = 200.0f;
@@ -244,25 +239,23 @@ void Snake::render() {
             window->draw(rs);
 
         }
-		
 
         // draw text after box
         window->draw(text);
     }
 
-	// Display ping in top left corner of the screen
-	long long ping_avg = 0;
-	for (size_t i = 0; i < pingVector.size(); i++)
-	{
-		ping_avg += pingVector[i];
-	}
-	if (pingVector.size() > 0)
-	{
-		ping_avg /= pingVector.size();
-	}
-	text.setString("Ping: " + std::to_string(ping_avg) + " ms");
-	text.setPosition(sf::Vector2f(0.0f, 0.0f));
-	window->draw(text);
+    // Display ping in top left corner of the screen
+    long long ping_avg = 0;
+    for (size_t i = 0; i < pingVector.size(); i++) {
+        ping_avg += pingVector[i];
+    }
+    if (pingVector.size() > 0) {
+        ping_avg /= pingVector.size();
+    }
+    text.setColor(sf::Color(255, 0, 0));
+    text.setString("Ping: " + std::to_string(ping_avg) + " ms");
+    text.setPosition(sf::Vector2f(0.0f, 0.0f));
+    window->draw(text);
 
 
     // set title message text

@@ -48,7 +48,8 @@ private:
     void init();
     void start();
 
-    void checkServerMessages();
+    // returns false when server is disconnected
+    bool checkServerMessages();
     void processPacket(sf::Packet& packet);
 
     void render();

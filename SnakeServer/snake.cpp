@@ -59,6 +59,7 @@ void Snake::init() {
     settings.depthBits = 24;
     settings.stencilBits = 8;
     settings.antialiasingLevel = 2;
+    //settings.majorVersion = 3.0;
     window = new sf::RenderWindow(sf::VideoMode(WIDTH, HEIGHT), "Snake Server", sf::Style::Default, settings);
     window->setFramerateLimit(60);
 
@@ -70,7 +71,7 @@ void Snake::init() {
     text.setCharacterSize(30);
 
     // set up map
-    map = Map((int)(WIDTH / TILE), (int)(HEIGHT / TILE) - 1);
+    map = Map((int)(WIDTH / TILE - 8), (int)(HEIGHT / TILE) - 1);
     map.pos = { 0,(int)TILE };
     map.generate();
 
@@ -147,7 +148,12 @@ void Snake::checkClientMessages() {
             }
             // reaching this point means data was successfully received
 
-            processPacket(packet, i);
+            // process packet
+            if (addReceiveLatency) {
+                delayQueueReceived.push(DelayedPacket(packet, i, getDelay(0.1f, 0.2f)));
+            } else {
+                processPacket(packet, i);
+            }
         }
     }
 }
@@ -155,14 +161,19 @@ void Snake::checkClientMessages() {
 void Snake::processPacket(sf::Packet& packet, int index) {
     sf::Uint8 b;
     packet >> b;
-    if (b == 0) {
+    if (b == 0) {           // input update from client
         packet >> players[index].inone;
         packet >> players[index].intwo;
-    } else if (b == 1) {    // if type == 1
+        std::cout << players[index].inone << std::endl;
+    } else if (b == 1) {    // any sort of string message from client
         std::string s;
         packet >> s;
 
         std::cout << s << std::endl;
+    } else if (b == 2) {    // ping check
+        sf::Packet pingback;
+        pingback << (sf::Uint8) 2;
+        sendPacket(pingback, index);
     } else {
         std::cout << "Unknown packet type received from client" << std::endl;
     }
@@ -170,12 +181,21 @@ void Snake::processPacket(sf::Packet& packet, int index) {
 
 void Snake::broadcastPacket(sf::Packet& packet) {
     for (size_t i = 0; i < clients.size() - 1; ++i) {
-        if (addLatency) {
-            delayQueue.push(DelayedPacket(packet, i, getDelay()));
-        } else {
-            clients[i]->send(packet);
-        }
+        sendPacket(packet, i);
     }
+}
+
+void Snake::sendPacket(sf::Packet& packet, int clientIndex) {
+    if (addSendLatency) {
+        delayQueueSend.push(DelayedPacket(packet, clientIndex, getDelay(0.1f, 0.2f)));
+    } else {
+        clients[clientIndex]->send(packet);
+    }
+}
+
+float Snake::getDelay(float min, float max) {
+    std::uniform_real_distribution<float> uni(min, max);
+    return delayClock.getElapsedTime().asSeconds() + uni(rng);
 }
 
 void Snake::broadcastGameState() {
@@ -217,33 +237,41 @@ void Snake::broadcastGameState() {
     for (size_t i = 0; i < clients.size() - 1; ++i) {
         sf::Packet clientPacket = packet;
         clientPacket << (sf::Uint8) i;
-        if (addLatency) {
-            delayQueue.push(DelayedPacket(clientPacket, i, getDelay()));
-        } else {
-            clients[i]->send(clientPacket);
-        }
+        sendPacket(clientPacket, i);
     }
 }
 
-float Snake::getDelay() {
-    std::uniform_real_distribution<float> uni(1.0f, 3.0f);
-    return delayClock.getElapsedTime().asSeconds() + uni(rng);
-}
-
 void Snake::checkAndSendDelayed() {
-    if (!addLatency || delayQueue.empty()) {
+    if (!addSendLatency || delayQueueSend.empty()) {
         return;
     }
     float curTime = delayClock.getElapsedTime().asSeconds();
 
-    DelayedPacket dp = delayQueue.front();
+    DelayedPacket dp = delayQueueSend.front();
     while (curTime > dp.timeToSend) {
-        delayQueue.pop();
+        delayQueueSend.pop();
 
         clients[dp.clientIndex]->send(dp.packet);
 
-        if (delayQueue.empty()) return;
-        dp = delayQueue.front();
+        if (delayQueueSend.empty()) return;
+        dp = delayQueueSend.front();
+    }
+}
+
+void Snake::checkAndReceiveDelayed() {
+    if (!addSendLatency || delayQueueReceived.empty()) {
+        return;
+    }
+    float curTime = delayClock.getElapsedTime().asSeconds();
+
+    DelayedPacket dp = delayQueueReceived.front();
+    while (curTime > dp.timeToSend) {
+        delayQueueReceived.pop();
+
+        processPacket(dp.packet, dp.clientIndex);
+
+        if (delayQueueReceived.empty()) return;
+        dp = delayQueueReceived.front();
     }
 }
 
@@ -338,6 +366,7 @@ void Snake::start() {
         }
 
         checkAndSendDelayed();
+        checkAndReceiveDelayed();
 
         // render board and limits framerate
         render();
@@ -437,13 +466,8 @@ void Snake::render() {
         text.setString(oss.str());
         text.setColor(Player::getColorFromID(p.id));
         // should change this if here to just something like this below
-        // text.setPosition(sf::Vector2f(i * WIDTH/numPlayers, 0.0f));
-        if (i == 0) {
-            text.setPosition(sf::Vector2f(0.0f, 0.0f));
-        } else {
-            sf::FloatRect fr = text.getLocalBounds();
-            text.setPosition(sf::Vector2f(WIDTH - fr.width, 0.0f));
-        }
+
+        text.setPosition(sf::Vector2f(800.0f, i * 50.0f + 50.0f));
         window->draw(text);
     }
 

@@ -29,7 +29,7 @@ public:
     ~Snake();
 
     // size of window in pixels
-    const int WIDTH = 800;
+    const int WIDTH = 1000;
     const int HEIGHT = 600;
 
     const float TILE = 25.0f;   // size of each tile in pixels
@@ -73,20 +73,22 @@ private:
 
     void broadcastGameState();
     void broadcastPacket(sf::Packet& packet);
+    void sendPacket(sf::Packet& packet, int clientIndex);
 
     void checkAndSendDelayed(); // checks delayedQueue and sends packets that have waited long enough
+    void checkAndReceiveDelayed();
 
 
     // latency simulation
-    bool addLatency = true;
+    bool addSendLatency = true;
+    bool addReceiveLatency = false;
 
-	std::queue<DelayedPacket> delayQueue; // Used for sending out packets on a delay
-    // make another queue for incoming packets probs
+	std::queue<DelayedPacket> delayQueueSend; // Used for sending out packets on a delay
+    std::queue<DelayedPacket> delayQueueReceived;
 
-    float getDelay();   // returns random uniform delay
+    float getDelay(float min, float max);   // returns random uniform delay
     sf::Clock delayClock;
     std::mt19937 rng;    
-
 
     int getWinner();    // sets winner
     void startGame(float delay);    // resets game to start state with a given delay
