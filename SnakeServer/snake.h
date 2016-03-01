@@ -14,12 +14,12 @@
 struct DelayedPacket {
     sf::Packet packet;
     int clientIndex;
-    float timeToSend;   // maybe change to long long time since epoch?
+    unsigned readyTime;
 
-    DelayedPacket(sf::Packet p, int i, float t) {
+    DelayedPacket(sf::Packet p, int i, unsigned t) {
         packet = p;
         clientIndex = i;
-        timeToSend = t;
+        readyTime = t;
     }
 };
 
@@ -67,6 +67,7 @@ private:
     int winner; // current state of game (0 means game still going, -1 is draw, > 0 means player n has won)
     bool gameRunning = false;  
     float gameTime = -1000.0f;     // current game time in seconds
+    unsigned gameStateId = 0;
     const float tickTime = 0.1f;  // defines how quickly game moves // should slow down when testing
 
     void gameTick();    // progresses state of game by one game tick
@@ -83,8 +84,8 @@ private:
     bool addSendLatency = true;
     bool addReceiveLatency = false;
 
-    std::vector<DelayedPacket> delayListSend;
-    std::vector<DelayedPacket> delayListReceived;
+    std::vector<DelayedPacket> delaySendList;
+    std::vector<DelayedPacket> delayReceivedList;
 
     std::vector<point> clientDelays;
     unsigned getDelay(int index); 

@@ -79,8 +79,8 @@ void Snake::init() {
     std::random_device rd;
     rng.seed(rd());
 
-    clientDelays.push_back(point{ 100, 300 });
     clientDelays.push_back(point{ 0, 100 });
+    clientDelays.push_back(point{ 100, 300 });
 }
 
 void Snake::checkNewConnections() {
@@ -152,7 +152,7 @@ void Snake::checkClientMessages() {
 
             // process packet
             if (addReceiveLatency) {
-                delayListReceived.push_back(DelayedPacket(packet, i, getDelay(i)));
+                delayReceivedList.push_back(DelayedPacket(packet, i, getDelay(i)));
             } else {
                 processPacket(packet, i);
             }
@@ -166,7 +166,7 @@ void Snake::processPacket(sf::Packet& packet, int index) {
     if (b == 0) {           // input update from client
         packet >> players[index].inone;
         packet >> players[index].intwo;
-        std::cout << players[index].inone << std::endl;
+        //std::cout << players[index].inone << std::endl;
     } else if (b == 1) {    // any sort of string message from client
         std::string s;
         packet >> s;
@@ -189,19 +189,19 @@ void Snake::broadcastPacket(sf::Packet& packet) {
 
 void Snake::sendPacket(sf::Packet& packet, int clientIndex) {
     if (addSendLatency) {
-        delayListSend.push_back(DelayedPacket(packet, clientIndex, getDelay(clientIndex)));
+        delaySendList.push_back(DelayedPacket(packet, clientIndex, getDelay(clientIndex)));
     } else {
         clients[clientIndex]->send(packet);
     }
 }
 
 unsigned Snake::getDelay(int index) {
-    if (index < 0 || index >= clientDelays.size()) {
+    if (index < 0 || index >= static_cast<int>(clientDelays.size())) {
         std::uniform_int_distribution<unsigned> uni(100, 300);
         return timeSinceEpochMillis() + uni(rng);
     } else {
         point p = clientDelays[index];
-        std::uniform_real_distribution<unsigned> uni(p.x, p.y);
+        std::uniform_int_distribution<unsigned> uni(p.x, p.y);
         return timeSinceEpochMillis() + uni(rng);
     }
 }
@@ -209,6 +209,7 @@ unsigned Snake::getDelay(int index) {
 void Snake::broadcastGameState() {
     // PACKET LAYOUT
     // type
+    // game state id
     // number of players
     // for each player
     // player id
@@ -222,6 +223,7 @@ void Snake::broadcastGameState() {
     sf::Packet packet;
 
     packet << (sf::Uint8) 0;
+    //packet << gameStateId;
     packet << (sf::Uint8) players.size();
     for (size_t i = 0; i < players.size(); ++i) {
         Player& player = players[i];
@@ -250,42 +252,54 @@ void Snake::broadcastGameState() {
 }
 
 void Snake::checkAndSendDelayed() {
-    if (!addSendLatency || delayQueueSend.empty()) {
+    if (!addSendLatency || delaySendList.empty()) {
         return;
     }
-    float curTime = delayClock.getElapsedTime().asSeconds();
 
-    DelayedPacket dp = delayQueueSend.front();
-    while (curTime > dp.timeToSend) {
-        delayQueueSend.pop();
+    unsigned curTime = timeSinceEpochMillis();
+    size_t i = 0;
+    while (i < delaySendList.size()) {
+        DelayedPacket& dp = delaySendList[i];
 
-        clients[dp.clientIndex]->send(dp.packet);
+        if (dp.readyTime < curTime) {
+            // send packet if it waited enough
+            clients[dp.clientIndex]->send(dp.packet);
 
-        if (delayQueueSend.empty()) return;
-        dp = delayQueueSend.front();
+            // remove packet from list
+            std::swap(delaySendList[i], delaySendList.back());
+            delaySendList.pop_back();
+        } else {
+            i++;
+        }
     }
 }
 
 void Snake::checkAndReceiveDelayed() {
-    if (!addSendLatency || delayQueueReceived.empty()) {
+    if (!addReceiveLatency || delayReceivedList.empty()) {
         return;
     }
-    float curTime = delayClock.getElapsedTime().asSeconds();
 
-    DelayedPacket dp = delayQueueReceived.front();
-    while (curTime > dp.timeToSend) {
-        delayQueueReceived.pop();
+    unsigned curTime = timeSinceEpochMillis();
+    size_t i = 0;
+    while (i < delayReceivedList.size()) {
+        DelayedPacket& dp = delayReceivedList[i];
 
-        processPacket(dp.packet, dp.clientIndex);
+        if (dp.readyTime < curTime) {
+            // process packet if it waited enough
+            processPacket(dp.packet, dp.clientIndex);
 
-        if (delayQueueReceived.empty()) return;
-        dp = delayQueueReceived.front();
+            // remove packet from list
+            std::swap(delayReceivedList[i], delayReceivedList.back());
+            delayReceivedList.pop_back();
+        } else {
+            i++;
+        }
     }
 }
 
 unsigned Snake::timeSinceEpochMillis() {
     auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
+    return static_cast<unsigned>(std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count());
 }
 
 
@@ -311,6 +325,7 @@ void Snake::gameTick() {
             p.dead = true;
         }
     }
+    gameStateId++;
 }
 
 void Snake::start() {
