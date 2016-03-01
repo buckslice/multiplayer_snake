@@ -55,4 +55,7 @@ private:
     void render();
     void generateVertices(sf::VertexArray& verts);
 
+    long long timeSinceEpochMillis();
+
+
 };

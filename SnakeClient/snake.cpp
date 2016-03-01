@@ -116,8 +116,7 @@ void Snake::start() {
         if (!pingWait) {
             pingWait = true;
             sf::Packet pingPacket;
-            auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-            pingTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
+            pingTime = timeSinceEpochMillis();
             pingPacket << (sf::Uint8)2;
             socket.send(pingPacket);
         }
@@ -193,9 +192,7 @@ void Snake::processPacket(sf::Packet& packet) {
     } else if (type == 1) { // update title text
         packet >> titleText;
     } else if (type == 2) {
-        auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-        long long time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
-        pingVector.push_back(time - pingTime);
+        pingVector.push_back(timeSinceEpochMillis() - pingTime);
         pingWait = false;
 
         if (pingVector.size() > 100) {   // lowered this for when laggy
@@ -204,6 +201,11 @@ void Snake::processPacket(sf::Packet& packet) {
     } else {
         std::cout << "Unknown packet type received from server" << std::endl;
     }
+}
+
+long long Snake::timeSinceEpochMillis() {
+    auto currentTime = std::chrono::system_clock::now().time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
 }
 
 void Snake::render() {

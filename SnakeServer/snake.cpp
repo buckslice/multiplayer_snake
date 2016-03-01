@@ -76,9 +76,11 @@ void Snake::init() {
     map.generate();
 
     // init latency simulation stuff
-    delayClock.restart();
     std::random_device rd;
     rng.seed(rd());
+
+    clientDelays.push_back(point{ 100, 300 });
+    clientDelays.push_back(point{ 0, 100 });
 }
 
 void Snake::checkNewConnections() {
@@ -150,7 +152,7 @@ void Snake::checkClientMessages() {
 
             // process packet
             if (addReceiveLatency) {
-                delayQueueReceived.push(DelayedPacket(packet, i, getDelay(0.1f, 0.2f)));
+                delayListReceived.push_back(DelayedPacket(packet, i, getDelay(0.1f, 0.2f)));
             } else {
                 processPacket(packet, i);
             }
@@ -190,6 +192,16 @@ void Snake::sendPacket(sf::Packet& packet, int clientIndex) {
         delayQueueSend.push(DelayedPacket(packet, clientIndex, getDelay(0.1f, 0.2f)));
     } else {
         clients[clientIndex]->send(packet);
+    }
+}
+
+float Snake::getDelay(int index) {
+    if (index < 0 || index >= clientDelays.size()) {
+        std::uniform_real_distribution<float> uni(0.1f, 0.3f);
+        return delayClock.getElapsedTime().asSeconds() + uni(rng);
+    } else {
+        std::uniform_real_distribution<float> uni(0.1f, 0.3f);
+        return delayClock.getElapsedTime().asSeconds() + uni(rng);
     }
 }
 
@@ -273,6 +285,11 @@ void Snake::checkAndReceiveDelayed() {
         if (delayQueueReceived.empty()) return;
         dp = delayQueueReceived.front();
     }
+}
+
+long long Snake::timeSinceEpochMillis() {
+    auto currentTime = std::chrono::system_clock::now().time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
 }
 
 
