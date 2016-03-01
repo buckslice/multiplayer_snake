@@ -36,9 +36,9 @@ private:
     std::string titleText;
 	std::string pingText;
 
-	long long pingTime;
 	bool pingWait = false;
-	std::vector<long long> pingVector;
+	unsigned pingTime;
+	std::vector<unsigned> pingVector;
 
     Map map;
     sf::Font font;
@@ -55,7 +55,8 @@ private:
     void render();
     void generateVertices(sf::VertexArray& verts);
 
-    long long timeSinceEpochMillis();
+    unsigned timeSinceEpochMillis();
 
-
+    bool hasConnectedBefore = false;
+    
 };

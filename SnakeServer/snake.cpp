@@ -152,7 +152,7 @@ void Snake::checkClientMessages() {
 
             // process packet
             if (addReceiveLatency) {
-                delayListReceived.push_back(DelayedPacket(packet, i, getDelay(0.1f, 0.2f)));
+                delayListReceived.push_back(DelayedPacket(packet, i, getDelay(i)));
             } else {
                 processPacket(packet, i);
             }
@@ -189,25 +189,21 @@ void Snake::broadcastPacket(sf::Packet& packet) {
 
 void Snake::sendPacket(sf::Packet& packet, int clientIndex) {
     if (addSendLatency) {
-        delayQueueSend.push(DelayedPacket(packet, clientIndex, getDelay(0.1f, 0.2f)));
+        delayListSend.push_back(DelayedPacket(packet, clientIndex, getDelay(clientIndex)));
     } else {
         clients[clientIndex]->send(packet);
     }
 }
 
-float Snake::getDelay(int index) {
+unsigned Snake::getDelay(int index) {
     if (index < 0 || index >= clientDelays.size()) {
-        std::uniform_real_distribution<float> uni(0.1f, 0.3f);
-        return delayClock.getElapsedTime().asSeconds() + uni(rng);
+        std::uniform_int_distribution<unsigned> uni(100, 300);
+        return timeSinceEpochMillis() + uni(rng);
     } else {
-        std::uniform_real_distribution<float> uni(0.1f, 0.3f);
-        return delayClock.getElapsedTime().asSeconds() + uni(rng);
+        point p = clientDelays[index];
+        std::uniform_real_distribution<unsigned> uni(p.x, p.y);
+        return timeSinceEpochMillis() + uni(rng);
     }
-}
-
-float Snake::getDelay(float min, float max) {
-    std::uniform_real_distribution<float> uni(min, max);
-    return delayClock.getElapsedTime().asSeconds() + uni(rng);
 }
 
 void Snake::broadcastGameState() {
@@ -287,7 +283,7 @@ void Snake::checkAndReceiveDelayed() {
     }
 }
 
-long long Snake::timeSinceEpochMillis() {
+unsigned Snake::timeSinceEpochMillis() {
     auto currentTime = std::chrono::system_clock::now().time_since_epoch();
     return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
 }

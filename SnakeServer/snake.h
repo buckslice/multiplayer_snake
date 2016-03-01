@@ -83,16 +83,11 @@ private:
     bool addSendLatency = true;
     bool addReceiveLatency = false;
 
-	//std::queue<DelayedPacket> delayQueueSend; // Used for sending out packets on a delay
-    //std::queue<DelayedPacket> delayQueueReceived;
-
-
     std::vector<DelayedPacket> delayListSend;
     std::vector<DelayedPacket> delayListReceived;
 
-    //float getDelay(float min, float max);   // returns random uniform delay
     std::vector<point> clientDelays;
-    float getDelay(int index); 
+    unsigned getDelay(int index); 
 
     std::mt19937 rng;    
 
@@ -103,6 +98,6 @@ private:
     void render();  // draws game to window
     void generateVertices(sf::VertexArray& verts); // builds vertex array from map data
 
-    long long timeSinceEpochMillis();
+    unsigned timeSinceEpochMillis();
 
 };

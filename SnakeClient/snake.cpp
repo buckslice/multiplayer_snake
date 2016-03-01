@@ -41,6 +41,7 @@ void Snake::init() {
     // try to connect to server
     if (socket.connect(ip, std::atoi(port.c_str())) == sf::Socket::Done) {
         std::cout << "SOCKET CONNECTED!" << std::endl;
+        hasConnectedBefore = true;
     } else {
         std::cout << "SOCKET FAILED TO CONNECT!" << std::endl;
     }
@@ -139,7 +140,7 @@ bool Snake::checkServerMessages() {
         if (status == sf::Socket::NotReady || status == sf::Socket::Error) {
             return true;
         } else if (status == sf::Socket::Disconnected) {
-            return false;
+            return !hasConnectedBefore;
         }
         processPacket(packet);
     }
@@ -203,7 +204,7 @@ void Snake::processPacket(sf::Packet& packet) {
     }
 }
 
-long long Snake::timeSinceEpochMillis() {
+unsigned Snake::timeSinceEpochMillis() {
     auto currentTime = std::chrono::system_clock::now().time_since_epoch();
     return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
 }
