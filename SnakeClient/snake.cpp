@@ -14,6 +14,7 @@
 #include "snake.h"
 #include "input.h"
 
+
 Snake::Snake() {
     init();
     start();
@@ -69,10 +70,27 @@ void Snake::init() {
 
 }
 
+void Snake::gameTick() {
+	for (size_t i = 0; i < players.size(); ++i) {
+		// figure out dir
+		Player& p = players[i];
+		point mv = p.getMove();
+		if (map.isWalkable(mv.x, mv.y)) {   // valid move
+			point oldend = p.move();
+			map.setTile(oldend, GROUND);
+			map.setTile(p.getPos(), p.id + PLAYER);
+		}
+		gamestateVector.push_back(Gamestate(++extraStateID, players));
+
+		if (gamestateVector.size() > 100) {   // lowered this for when laggy
+			gamestateVector.erase(gamestateVector.begin());
+		}
+	}
+}
+
 void Snake::start() {
 
     sf::Clock frameTime;
-    sf::Clock gameTime;
     bool running = true;
     while (running) {
         float delta = frameTime.restart().asSeconds();
@@ -106,11 +124,11 @@ void Snake::start() {
             myp.checkInput();
 
             sf::Packet packet;
+			unsigned int packetTime = timeSinceEpochMillis();
             packet << (sf::Uint8) 0;
+			packet << packetTime;
             packet << myp.inone;
             packet << myp.intwo;
-
-            socket.send(packet);
         }
 
         // send ping message
@@ -121,6 +139,15 @@ void Snake::start() {
             pingPacket << (sf::Uint8)2;
             socket.send(pingPacket);
         }
+
+		if (gameRunning) {
+			gameTime += delta;
+			// if enough time has passed then do a game tick
+			if (gameTime >= tickTime) {
+				gameTick();
+				gameTime = 0.0f;
+				}
+			}
 
 
         // renders the board and limits framerate
@@ -157,6 +184,13 @@ void Snake::processPacket(sf::Packet& packet) {
         // packet layout defined in server snake.cpp
         // builds local player vector for getting input and score reference
         // will be used later to extrapolate player movement during lag
+		if (!gameRunning)
+		{
+			gameRunning = true;
+			gameTime = 0.0f;
+		}
+		packet >> trueStateID;
+
         packet >> b;
         int numPlayers = b;
 
@@ -190,6 +224,26 @@ void Snake::processPacket(sf::Packet& packet) {
         packet >> b;
         playerIndex = b;
 
+		size_t resetIndex;
+
+		for (size_t i = 0; i < gamestateVector.size(); i++)
+		{
+			if (gamestateVector[i].gamestateID == trueStateID)
+			{
+				Gamestate trueGamestate = Gamestate(trueStateID, players);
+				if (!(gamestateVector[i] == trueGamestate))
+				{
+					extraStateID = trueStateID;
+					resetIndex = i;
+				}
+				break;
+			}
+		}
+
+		// TO DO:
+		// RESET GAMESTATE TO TRUE GAMESTATE HERE
+
+
     } else if (type == 1) { // update title text
         packet >> titleText;
     } else if (type == 2) {
@@ -209,8 +263,9 @@ unsigned Snake::timeSinceEpochMillis() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
 }
 
+
 void Snake::render() {
-    window->clear(sf::Color(12, 26, 51));
+	window->clear(sf::Color(12, 26, 51));
 
     sf::VertexArray verts;
     verts.setPrimitiveType(sf::PrimitiveType::Quads);
