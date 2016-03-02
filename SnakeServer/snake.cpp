@@ -223,7 +223,7 @@ void Snake::broadcastGameState() {
     sf::Packet packet;
 
     packet << (sf::Uint8) 0;
-    //packet << gameStateId;
+    packet << gameStateId;
     packet << (sf::Uint8) players.size();
     for (size_t i = 0; i < players.size(); ++i) {
         Player& player = players[i];

@@ -63,13 +63,14 @@ void Player::grow(int amount) {
     growth += amount;
 }
 
-bool Player::operator ==(const Player& p1, const Player& p2)
+// not a member (((((((((:
+bool operator==(const Player& p1, const Player& p2)
 {
-	if ( (p2.points.size() != p1.points.size()) || !(p1.dir == p2.dir) || !(p1.inone == p2.inone) || !(p1.intwo == p2.intwo) )
+	if ( (p1.points.size() != p2.points.size()) || !(p1.dir == p2.dir) || !(p1.inone == p2.inone) || !(p1.intwo == p2.intwo) )
 	{
 		return false;
 	}
-	for (size_t i = 0; p2.points.size(); i++)
+	for (size_t i = 0; p1.points.size(); i++)
 	{
 		if (!(p1.points[i] == p2.points[i]))
 			return false;

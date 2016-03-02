@@ -119,7 +119,7 @@ void Snake::start() {
         }
 
         // make sure index is valid and window is focused
-        if (playerIndex >= 0 && playerIndex < players.size() && window->hasFocus()) {
+        if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size()) && window->hasFocus()) {
             Player& myp = players[playerIndex];
             myp.checkInput();
 
@@ -260,7 +260,7 @@ void Snake::processPacket(sf::Packet& packet) {
 
 unsigned Snake::timeSinceEpochMillis() {
     auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count();
+    return static_cast<unsigned>(std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count());
 }
 
 

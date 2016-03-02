@@ -26,7 +26,7 @@ public:
 
     void grow(int amount);
 
-	friend bool operator==(const Player& p1, const Player& p2);
+    friend bool operator==(const Player& p1, const Player& p2);
 
     bool dead;
     int id;
@@ -37,3 +37,4 @@ private:
     std::vector<point> points;
     int growth;
 };
+
