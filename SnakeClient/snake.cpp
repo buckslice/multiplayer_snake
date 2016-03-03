@@ -71,21 +71,21 @@ void Snake::init() {
 }
 
 void Snake::gameTick() {
-	for (size_t i = 0; i < players.size(); ++i) {
-		// figure out dir
-		Player& p = players[i];
-		point mv = p.getMove();
-		if (map.isWalkable(mv.x, mv.y)) {   // valid move
-			point oldend = p.move();
-			map.setTile(oldend, GROUND);
-			map.setTile(p.getPos(), p.id + PLAYER);
-		}
-		gamestateVector.push_back(Gamestate(++extraStateID, players));
+    for (size_t i = 0; i < players.size(); ++i) {
+        // figure out dir
+        Player& p = players[i];
+        point mv = p.getMove();
+        if (map.isWalkable(mv.x, mv.y)) {   // valid move
+            point oldend = p.move();
+            map.setTile(oldend, GROUND);
+            map.setTile(p.getPos(), p.id + PLAYER);
+        }
+        gameStateVector.push_back(GameState(++clientStateID, players));
 
-		if (gamestateVector.size() > 100) {   // lowered this for when laggy
-			gamestateVector.erase(gamestateVector.begin());
-		}
-	}
+        if (gameStateVector.size() > 100) {   // lowered this for when laggy
+            gameStateVector.erase(gameStateVector.begin());
+        }
+    }
 }
 
 void Snake::start() {
@@ -124,9 +124,9 @@ void Snake::start() {
             myp.checkInput();
 
             sf::Packet packet;
-			unsigned int packetTime = timeSinceEpochMillis();
+            unsigned int packetTime = timeSinceEpochMillis();
             packet << (sf::Uint8) 0;
-			packet << packetTime;
+            packet << packetTime;
             packet << myp.inone;
             packet << myp.intwo;
         }
@@ -140,14 +140,14 @@ void Snake::start() {
             socket.send(pingPacket);
         }
 
-		if (gameRunning) {
-			gameTime += delta;
-			// if enough time has passed then do a game tick
-			if (gameTime >= tickTime) {
-				gameTick();
-				gameTime = 0.0f;
-				}
-			}
+        if (gameRunning) {
+            gameTime += delta;
+            // if enough time has passed then do a game tick
+            if (gameTime >= tickTime) {
+                gameTick();
+                gameTime = 0.0f;
+            }
+        }
 
 
         // renders the board and limits framerate
@@ -184,18 +184,15 @@ void Snake::processPacket(sf::Packet& packet) {
         // packet layout defined in server snake.cpp
         // builds local player vector for getting input and score reference
         // will be used later to extrapolate player movement during lag
-		if (!gameRunning)
-		{
-			gameRunning = true;
-			gameTime = 0.0f;
-		}
-		packet >> trueStateID;
+        if (!gameRunning) {
+            gameRunning = true;
+            gameTime = 0.0f;
+        }
+        packet >> serverStateID;
 
         packet >> b;
         int numPlayers = b;
-
-        map.generate();
-        players.clear();
+        std::vector<Player> serverPlayers;
         for (int i = 0; i < numPlayers; ++i) {
             packet >> b;
             int playerid = b;
@@ -213,37 +210,30 @@ void Snake::processPacket(sf::Packet& packet) {
                 point p;
                 packet >> p;
                 points.push_back(p);
-                map.setTile(p, player.id + PLAYER);
             }
-            players.push_back(player);
+            serverPlayers.push_back(player);
         }
-        point p;
-        packet >> p;
-        map.setTile(p, FOOD);
+        packet >> foodPos;
+        map.setTile(foodPos, FOOD);
 
         packet >> b;
         playerIndex = b;
 
-		size_t resetIndex;
+        if (serverStateID == 0) {
+            rollBack(serverPlayers);
+        }
 
-		for (size_t i = 0; i < gamestateVector.size(); i++)
-		{
-			if (gamestateVector[i].gamestateID == trueStateID)
-			{
-				Gamestate trueGamestate = Gamestate(trueStateID, players);
-				if (!(gamestateVector[i] == trueGamestate))
-				{
-					extraStateID = trueStateID;
-					resetIndex = i;
-				}
-				break;
-			}
-		}
+        for (size_t i = 0; i < gameStateVector.size(); i++) {
+            if (gameStateVector[i].gamestateID == serverStateID) {
+                if (!(gameStateVector[i].playerVector == serverPlayers)) {
+                    // client gameState wrong, reassign to servers gameState
+                    rollBack(serverPlayers);
+                }
+                break;
+            }
+        }
 
-		// TO DO:
-		// RESET GAMESTATE TO TRUE GAMESTATE HERE
-
-
+        
     } else if (type == 1) { // update title text
         packet >> titleText;
     } else if (type == 2) {
@@ -258,6 +248,25 @@ void Snake::processPacket(sf::Packet& packet) {
     }
 }
 
+void Snake::rollBack(std::vector<Player>& newPlayers) {
+    std::cout << "Rolling back: " << clientStateID << " " << serverStateID << std::endl;
+    clientStateID = serverStateID;
+
+    // clear saved gamestates
+    gameStateVector.clear();
+
+    players = newPlayers;
+    // reset map stuff
+    map.generate();
+    map.setTile(foodPos, FOOD);
+    for (size_t i = 0; i < players.size(); ++i) {
+        auto& ppoints = players[i].getPoints();
+        for (size_t j = 0; j < ppoints.size(); ++j) {
+            map.setTile(ppoints[j], players[i].id + PLAYER);
+        }
+    }
+}
+
 unsigned Snake::timeSinceEpochMillis() {
     auto currentTime = std::chrono::system_clock::now().time_since_epoch();
     return static_cast<unsigned>(std::chrono::duration_cast<std::chrono::milliseconds>(currentTime).count());
@@ -265,7 +274,7 @@ unsigned Snake::timeSinceEpochMillis() {
 
 
 void Snake::render() {
-	window->clear(sf::Color(12, 26, 51));
+    window->clear(sf::Color(12, 26, 51));
 
     sf::VertexArray verts;
     verts.setPrimitiveType(sf::PrimitiveType::Quads);

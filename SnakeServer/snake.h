@@ -67,7 +67,7 @@ private:
     int winner; // current state of game (0 means game still going, -1 is draw, > 0 means player n has won)
     bool gameRunning = false;  
     float gameTime = -1000.0f;     // current game time in seconds
-    unsigned gameStateId = 0;
+    unsigned gameStateId = -1;
     const float tickTime = 0.1f;  // defines how quickly game moves // should slow down when testing
 
     void gameTick();    // progresses state of game by one game tick
