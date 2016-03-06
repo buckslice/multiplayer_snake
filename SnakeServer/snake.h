@@ -78,6 +78,7 @@ private:
 
     void checkAndSendDelayed(); // checks delayedQueue and sends packets that have waited long enough
     void checkAndReceiveDelayed();
+    bool clientTurned = false;
 
 
     // latency simulation

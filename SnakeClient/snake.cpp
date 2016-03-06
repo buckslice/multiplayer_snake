@@ -130,10 +130,7 @@ void Snake::start() {
             running = false;
         }
 
-        // make sure index is valid and window is focused
-
-
-		
+        // make sure index is valid and window is focused		
 			if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size()) && window->hasFocus()) {
 				Player& myp = players[playerIndex];
 				if (myp.checkInput()) {

@@ -27,6 +27,7 @@ public:
     bool dead;
     int id;
     int score;
+    std::string playerName;
 
     static sf::Color getColorFromID(int id);
 private:

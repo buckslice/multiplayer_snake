@@ -5,6 +5,7 @@
 !*.h
 !*.sln
 !*.dll
+!*.ttf
 !*.vcxproj
 !*.vcxproj.filters
 !libs/

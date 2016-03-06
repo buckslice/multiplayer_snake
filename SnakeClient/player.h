@@ -16,7 +16,6 @@ public:
     point getPos();
     std::vector<point>& getPoints();
     point getMove();
-	std::string playerName;
 
     bool checkInput();
     point move();
@@ -32,6 +31,7 @@ public:
     bool dead;
     int id;
     int score;
+	std::string playerName;
 
     static sf::Color Player::getColorFromID(int id);
 private:

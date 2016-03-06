@@ -118,6 +118,7 @@ void Snake::checkNewConnections() {
 }
 
 void Snake::checkClientMessages() {
+    clientTurned = false;
     // iterate over each connected client and check for received messages
     // skip last element of clients since that is an open socket waiting for a new connection
     for (size_t i = 0, len = clients.size() - 1; i < len; ++i) {
@@ -166,6 +167,7 @@ void Snake::processPacket(sf::Packet& packet, int index) {
     if (b == 0) {           // input update from client
         packet >> players[index].inone;
         packet >> players[index].intwo;
+        clientTurned = true;
         //std::cout << players[index].inone << std::endl;
     } else if (b == 1) {    // any sort of string message from client
         std::string s;
@@ -176,6 +178,11 @@ void Snake::processPacket(sf::Packet& packet, int index) {
         sf::Packet pingback;
         pingback << (sf::Uint8) 2;
         sendPacket(pingback, index);
+    } else if (b == 3) {    // client sending player name
+        std::string s;
+        packet >> s;
+        s = s.substr(0, 5);
+        players[index].playerName = s;
     } else {
         std::cout << "Unknown packet type received from client" << std::endl;
     }
@@ -212,11 +219,12 @@ void Snake::broadcastGameState() {
     // game state id
     // number of players
     // for each player
-    // player id
-    // player score
-    // player dir, and inputs
-    // length of snake
-    // points in snake
+        // player id
+        // player name
+        // player score
+        // player dir, and inputs
+        // length of snake
+        // points in snake
     // food pos
     // id of client in player list
 
@@ -228,6 +236,7 @@ void Snake::broadcastGameState() {
     for (size_t i = 0; i < players.size(); ++i) {
         Player& player = players[i];
         packet << (sf::Uint8)player.id;
+        packet << player.playerName;
         packet << (sf::Uint8)player.score;
         packet << player.dir;
         packet << player.inone;
@@ -322,6 +331,10 @@ void Snake::gameTick() {
 
             foodPos = map.spawnRandom(FOOD);
         } else {    // hit wall or part of a snake so this player dies!
+            std::cout << mv << std::endl;
+            std::cout << p.inone << std::endl;
+            std::cout << p.intwo << std::endl;
+
             p.dead = true;
         }
     }
@@ -383,7 +396,9 @@ void Snake::start() {
                 }
 
                 // send game state back to clients
-                broadcastGameState();
+                if (clientTurned) {
+                    broadcastGameState();
+                }
             }
 
             // if game ended then restart after delay
@@ -490,7 +505,8 @@ void Snake::render() {
         std::ostringstream oss;
 
         Player& p = players[i];
-        oss << "P " << (p.id + 1) << " : " << p.score << " ";
+        //oss << "P " << (p.id + 1) << " : " << p.score << " ";
+        oss << p.playerName << " : " << p.score << " ";
         text.setString(oss.str());
         text.setColor(Player::getColorFromID(p.id));
         // should change this if here to just something like this below
