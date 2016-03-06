@@ -66,6 +66,7 @@ private:
 
     std::string titleText;
     std::string pingText;
+	
 
     bool pingWait = false;
     unsigned pingTime;

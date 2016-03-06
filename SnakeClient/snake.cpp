@@ -21,6 +21,11 @@ Snake::Snake() {
 }
 
 void Snake::init() {
+	// get player ID
+	std::string playerID;
+	std::cout << "Enter Player ID: ";
+	std::getline(std::cin, playerID);
+
     // get port
     std::string port;
     std::cout << "Enter port number: ";
@@ -43,10 +48,17 @@ void Snake::init() {
     if (socket.connect(ip, std::atoi(port.c_str())) == sf::Socket::Done) {
         std::cout << "SOCKET CONNECTED!" << std::endl;
         hasConnectedBefore = true;
+		sf::Packet p;
+		p << (sf::Uint8) 3;
+		p << playerID;
+		socket.send(p);
+
     } else {
         std::cout << "SOCKET FAILED TO CONNECT!" << std::endl;
     }
     socket.setBlocking(false);
+
+
 
     // build window
     sf::ContextSettings settings;
@@ -119,17 +131,22 @@ void Snake::start() {
         }
 
         // make sure index is valid and window is focused
-        if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size()) && window->hasFocus()) {
-            Player& myp = players[playerIndex];
-            myp.checkInput();
 
-            sf::Packet packet;
-            unsigned int packetTime = timeSinceEpochMillis();
-            packet << (sf::Uint8) 0;
-            packet << packetTime;
-            packet << myp.inone;
-            packet << myp.intwo;
-        }
+
+		
+			if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size()) && window->hasFocus()) {
+				Player& myp = players[playerIndex];
+				if (myp.checkInput()) {
+					sf::Packet packet;
+					unsigned int packetTime = timeSinceEpochMillis();
+					packet << (sf::Uint8) 0;
+					packet << packetTime;
+					packet << myp.inone;
+					packet << myp.intwo;
+					socket.send(packet);
+				}
+			}
+		
 
         // send ping message
         if (!pingWait) {
@@ -184,6 +201,8 @@ void Snake::processPacket(sf::Packet& packet) {
         // packet layout defined in server snake.cpp
         // builds local player vector for getting input and score reference
         // will be used later to extrapolate player movement during lag
+
+
         if (!gameRunning) {
             gameRunning = true;
             gameTime = 0.0f;
@@ -197,6 +216,7 @@ void Snake::processPacket(sf::Packet& packet) {
             packet >> b;
             int playerid = b;
             Player player(playerid);
+			packet >> player.playerName;
             packet >> b;
             int playerScore = b;
             player.score = playerScore;
@@ -214,16 +234,24 @@ void Snake::processPacket(sf::Packet& packet) {
             serverPlayers.push_back(player);
         }
         packet >> foodPos;
+		map.generate();
         map.setTile(foodPos, FOOD);
 
         packet >> b;
         playerIndex = b;
 
-        if (serverStateID == 0) {
-            rollBack(serverPlayers);
-        }
 
-        for (size_t i = 0; i < gameStateVector.size(); i++) {
+        /*if (serverStateID == 0) {
+            rollBack(serverPlayers);
+        }*/
+
+		
+
+
+		players = serverPlayers;
+
+
+        /*for (size_t i = 0; i < gameStateVector.size(); i++) {
             if (gameStateVector[i].gamestateID == serverStateID) {
                 if (!(gameStateVector[i].playerVector == serverPlayers)) {
                     // client gameState wrong, reassign to servers gameState
@@ -231,7 +259,8 @@ void Snake::processPacket(sf::Packet& packet) {
                 }
                 break;
             }
-        }
+        }*/
+
 
         
     } else if (type == 1) { // update title text
@@ -289,7 +318,7 @@ void Snake::render() {
         std::ostringstream oss;
 
         Player& p = players[i];
-        oss << "P " << (p.id + 1) << " : " << p.score << " ";
+		oss << p.playerName << " : " << p.score << " ";
         text.setString(oss.str());
         sf::Color c = Player::getColorFromID(p.id);
         text.setColor(c);

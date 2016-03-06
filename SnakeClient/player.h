@@ -16,8 +16,9 @@ public:
     point getPos();
     std::vector<point>& getPoints();
     point getMove();
+	std::string playerName;
 
-    void checkInput();
+    bool checkInput();
     point move();
 
     point dir, inone, intwo;

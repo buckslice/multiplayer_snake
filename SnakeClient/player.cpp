@@ -16,35 +16,45 @@ Player::Player(int id) : id{ id } {
     dead = false;
 }
 
-void Player::checkInput() {
+bool Player::checkInput() {
+	bool changed = false;
     if (Input::justPressed(sf::Keyboard::A) || Input::justPressed(sf::Keyboard::Left)) {
         if (dir.x == 0) {
             inone = { -1,0 };
+			changed = true;
         } else if (inone.y != 0) {
             intwo = { -1,0 };
+			changed = true;
         }
     }
     if (Input::justPressed(sf::Keyboard::D) || Input::justPressed(sf::Keyboard::Right)) {
         if (dir.x == 0) {
             inone = { 1,0 };
+			changed = true;
         } else if (inone.y != 0) {
             intwo = { 1,0 };
+			changed = true;
         }
     }
     if (Input::justPressed(sf::Keyboard::S) || Input::justPressed(sf::Keyboard::Down)) {
         if (dir.y == 0) {
             inone = { 0,1 };
+			changed = true;
         } else if (inone.x != 0) {
             intwo = { 0,1 };
+			changed = true;
         }
     }
     if (Input::justPressed(sf::Keyboard::W) || Input::justPressed(sf::Keyboard::Up)) {
         if (dir.y == 0) {
             inone = { 0,-1 };
+			changed = true;
         } else if (inone.x != 0) {
             intwo = { 0,-1 };
+			changed = true;
         }
     }
+	return changed;
 
 }
 
