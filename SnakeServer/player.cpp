@@ -75,3 +75,14 @@ sf::Color Player::getColorFromID(int id) {
         return sf::Color(255, 0, 255);
     }
 }
+
+bool operator==(const Player& p1, const Player& p2) {
+    if ((p1.points.size() != p2.points.size()) || !(p1.dir == p2.dir) || !(p1.inone == p2.inone) || !(p1.intwo == p2.intwo)) {
+        return false;
+    }
+    for (size_t i = 0; p1.points.size(); i++) {
+        if (!(p1.points[i] == p2.points[i]))
+            return false;
+    }
+    return true;
+}

@@ -17,44 +17,44 @@ Player::Player(int id) : id{ id } {
 }
 
 bool Player::checkInput() {
-	bool changed = false;
+    bool changed = false;
     if (Input::justPressed(sf::Keyboard::A) || Input::justPressed(sf::Keyboard::Left)) {
         if (dir.x == 0) {
             inone = { -1,0 };
-			changed = true;
+            changed = true;
         } else if (inone.y != 0) {
             intwo = { -1,0 };
-			changed = true;
+            changed = true;
         }
     }
     if (Input::justPressed(sf::Keyboard::D) || Input::justPressed(sf::Keyboard::Right)) {
         if (dir.x == 0) {
             inone = { 1,0 };
-			changed = true;
+            changed = true;
         } else if (inone.y != 0) {
             intwo = { 1,0 };
-			changed = true;
+            changed = true;
         }
     }
     if (Input::justPressed(sf::Keyboard::S) || Input::justPressed(sf::Keyboard::Down)) {
         if (dir.y == 0) {
             inone = { 0,1 };
-			changed = true;
+            changed = true;
         } else if (inone.x != 0) {
             intwo = { 0,1 };
-			changed = true;
+            changed = true;
         }
     }
     if (Input::justPressed(sf::Keyboard::W) || Input::justPressed(sf::Keyboard::Up)) {
         if (dir.y == 0) {
             inone = { 0,-1 };
-			changed = true;
+            changed = true;
         } else if (inone.x != 0) {
             intwo = { 0,-1 };
-			changed = true;
+            changed = true;
         }
     }
-	return changed;
+    return changed;
 
 }
 
@@ -74,18 +74,15 @@ void Player::grow(int amount) {
 }
 
 // not a member (((((((((:
-bool operator==(const Player& p1, const Player& p2)
-{
-	if ( (p1.points.size() != p2.points.size()) || !(p1.dir == p2.dir) || !(p1.inone == p2.inone) || !(p1.intwo == p2.intwo) )
-	{
-		return false;
-	}
-	for (size_t i = 0; p1.points.size(); i++)
-	{
-		if (!(p1.points[i] == p2.points[i]))
-			return false;
-	}
-	return true;
+bool operator==(const Player& p1, const Player& p2) {
+    if ((p1.points.size() != p2.points.size()) || !(p1.dir == p2.dir) || !(p1.inone == p2.inone) || !(p1.intwo == p2.intwo)) {
+        return false;
+    }
+    for (size_t i = 0; p1.points.size(); i++) {
+        if (!(p1.points[i] == p2.points[i]))
+            return false;
+    }
+    return true;
 }
 
 std::vector<point>& Player::getPoints() {

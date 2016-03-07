@@ -9,28 +9,6 @@
 #include "player.h"
 #include <SFML/Network.hpp>
 
-struct GameState {
-    unsigned int gamestateID;
-    std::vector<Player> playerVector;
-
-    GameState(unsigned int id, std::vector<Player>& players) {
-        gamestateID = id;
-        playerVector = players;
-    }
-
-    friend bool operator==(const GameState& g1, const GameState& g2) {
-        if (g1.gamestateID != g2.gamestateID) {
-            return false;
-        }
-        for (size_t i = 0; i < g1.playerVector.size(); i++) {
-            if (!(g1.playerVector[i] == g2.playerVector[i])) {
-                return false;
-            }
-        }
-        return true;
-    }
-};
-
 class Snake {
 public:
     Snake();
@@ -59,20 +37,23 @@ private:
     unsigned int serverStateID;
 
     bool gameRunning = false;
-    float gameTime = -1000.0f;		// current game time in seconds
-    const float tickTime = 0.1f;	// defines how quickly game moves // should slow down when testing
-
-    std::vector<GameState> gameStateVector;
+    unsigned lastTick;
+    unsigned gameStartTime;
+    const unsigned msPerTick = 100;
 
     std::string titleText;
     std::string pingText;
 	
-
+    // for determining ping
     bool pingWait = false;
     unsigned pingTime;
     std::vector<unsigned> pingVector;
 
+    bool shouldSendInput = false;
+
     Map map;
+    point foodPos;
+
     sf::Font font;
     sf::Text text;
 
@@ -84,8 +65,6 @@ private:
     bool checkServerMessages();
     void processPacket(sf::Packet& packet);
 
-    void rollBack(std::vector<Player>& newPlayers);
-    point foodPos;
 
     void render();
     void generateVertices(sf::VertexArray& verts);

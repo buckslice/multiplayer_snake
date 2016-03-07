@@ -10,6 +10,30 @@
 #include <random>
 #include "map.h"
 #include "player.h"
+#include <unordered_map>
+
+struct GameState {
+    unsigned int gameFrame;
+    std::vector<Player> playerVector;
+    // should add food into this too
+
+    GameState(unsigned int id, std::vector<Player>& players) {
+        gameFrame = id;
+        playerVector = players;
+    }
+
+    friend bool operator==(const GameState& g1, const GameState& g2) {
+        if (g1.gameFrame != g2.gameFrame) {
+            return false;
+        }
+        for (size_t i = 0; i < g1.playerVector.size(); i++) {
+            if (!(g1.playerVector[i] == g2.playerVector[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
 
 struct DelayedPacket {
     sf::Packet packet;
@@ -21,6 +45,11 @@ struct DelayedPacket {
         clientIndex = i;
         readyTime = t;
     }
+};
+
+struct PlayerInput {
+    point inone;
+    point intwo;
 };
 
 class Snake {
@@ -67,7 +96,7 @@ private:
     int winner; // current state of game (0 means game still going, -1 is draw, > 0 means player n has won)
     bool gameRunning = false;  
     float gameTime = -1000.0f;     // current game time in seconds
-    unsigned gameStateId = -1;
+    unsigned serverFrame = -1;
     const float tickTime = 0.1f;  // defines how quickly game moves // should slow down when testing
 
     void gameTick();    // progresses state of game by one game tick
@@ -78,8 +107,6 @@ private:
 
     void checkAndSendDelayed(); // checks delayedQueue and sends packets that have waited long enough
     void checkAndReceiveDelayed();
-    bool clientTurned = false;
-
 
     // latency simulation
     bool addSendLatency = true;
@@ -87,6 +114,13 @@ private:
 
     std::vector<DelayedPacket> delaySendList;
     std::vector<DelayedPacket> delayReceivedList;
+
+    std::vector<GameState> previousStates;
+    std::vector<std::unordered_map<unsigned, PlayerInput>> inputs;
+    unsigned receivedInputs = 0;
+    unsigned oldestFrame = -1;
+    unsigned lastGameStartTime;
+    void resimulateGameToPresentState();
 
     std::vector<point> clientDelays;
     unsigned getDelay(int index); 

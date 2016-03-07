@@ -118,8 +118,6 @@ void Snake::checkNewConnections() {
 }
 
 void Snake::checkClientMessages() {
-    //clientTurned = false;
-    clientTurned = true;
     // iterate over each connected client and check for received messages
     // skip last element of clients since that is an open socket waiting for a new connection
     for (size_t i = 0, len = clients.size() - 1; i < len; ++i) {
@@ -166,16 +164,31 @@ void Snake::processPacket(sf::Packet& packet, int index) {
     sf::Uint8 b;
     packet >> b;
     if (b == 0) {           // input update from client
-        unsigned int packetTime;
-        packet >> packetTime;
-        packet >> players[index].inone;
-        packet >> players[index].intwo;
-        std::cout << players[index].inone << " " << players[index].intwo << " ";
-        if (index == 1) {
-            std::cout << std::endl;
+        receivedInputs++;
+
+        unsigned clientFrame;
+        packet >> clientFrame;
+
+        if (clientFrame < oldestFrame) {
+            oldestFrame = clientFrame;
         }
-        clientTurned = true;
-        //std::cout << players[index].inone << std::endl;
+
+        PlayerInput pi;
+        packet >> pi.inone;
+        packet >> pi.intwo;
+
+        inputs[index][clientFrame] = pi;
+
+        // ignore input if sent in a frame before last game start
+        // add inputs to a queue?
+        // set earliest gamestateframeid 
+        // queue holds index, inone intwo, frame
+        // only allow one input per frame from each client
+
+        // after all packets processed rewind to what state number that player made the move
+        // maybe deduce state by time sent at or just the gamestateID move was performed in
+        // resimulate basically each tick starting from that point
+
     } else if (b == 1) {    // any sort of string message from client
         std::string s;
         packet >> s;
@@ -238,7 +251,7 @@ void Snake::broadcastGameState() {
     sf::Packet packet;
 
     packet << (sf::Uint8) 0;
-    packet << gameStateId;
+    packet << serverFrame;
     packet << (sf::Uint8) players.size();
     for (size_t i = 0; i < players.size(); ++i) {
         Player& player = players[i];
@@ -338,14 +351,48 @@ void Snake::gameTick() {
 
             foodPos = map.spawnRandom(FOOD);
         } else {    // hit wall or part of a snake so this player dies!
-            //std::cout << mv << std::endl;
-            //std::cout << p.inone << std::endl;
-            //std::cout << p.intwo << std::endl;
-
             p.dead = true;
         }
     }
-    gameStateId++;
+}
+
+void Snake::resimulateGameToPresentState() {
+    std::cout << serverFrame << " " << oldestFrame << " ";
+    receivedInputs = 0;
+
+    int index = previousStates.size() - 1 - (serverFrame - oldestFrame);
+    if (index < 0) {
+        index = 0;
+    } else if (index >= previousStates.size()) {
+        index = previousStates.size() - 1;
+    }
+
+    unsigned simFrame = previousStates[index].gameFrame;
+    // reset game back to previous state
+    players = previousStates[index].playerVector;
+    map.generate();
+    map.setTile(foodPos, FOOD);
+    for (size_t i = 0; i < players.size(); ++i) {
+        auto& ppoints = players[i].getPoints();
+        for (size_t j = 0; j < ppoints.size(); ++j) {
+            map.setTile(ppoints[j], players[i].id + PLAYER);
+        }
+    }
+
+    while (simFrame < serverFrame) {
+        // check inputs for input this frame
+        for (size_t i = 0; i < inputs.size(); ++i) {
+            if (inputs[i].count(simFrame)) {
+                PlayerInput pi = inputs[i][simFrame];
+                players[i].inone = pi.inone;
+                players[i].intwo = pi.intwo;
+            }
+        }
+
+        // gametick
+        gameTick();
+        simFrame++;
+    }
 }
 
 void Snake::start() {
@@ -392,7 +439,22 @@ void Snake::start() {
             gameTime += delta;
             // if enough time has passed then do a game tick
             if (gameTime >= tickTime) {
+                if (receivedInputs > 0) {
+                    resimulateGameToPresentState();
+                }
+                inputs.resize(players.size());
+                for (size_t i = 0; i < inputs.size(); ++i) {
+                    inputs[i].clear();
+                }
+
                 gameTick();
+                serverFrame++;
+                oldestFrame = serverFrame;
+                previousStates.push_back(GameState(serverFrame, players));
+                while (previousStates.size() > 20) {
+                    previousStates.erase(previousStates.begin());
+                }
+
                 gameTime = 0.0f;
 
                 winner = getWinner();
@@ -403,9 +465,7 @@ void Snake::start() {
                 }
 
                 // send game state back to clients
-                if (clientTurned) {
-                    broadcastGameState();
-                }
+                broadcastGameState();
             }
 
             // if game ended then restart after delay
