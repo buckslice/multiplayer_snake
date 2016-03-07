@@ -204,7 +204,12 @@ void Snake::processPacket(sf::Packet& packet) {
             gameRunning = true;
             gameTime = 0.0f;
         }
-        packet >> serverStateID;
+        unsigned int newServerStateID;
+        packet >> newServerStateID;
+        if (newServerStateID <= serverStateID) {
+            return;
+        }
+        serverStateID = newServerStateID;
 
         packet >> b;
         int numPlayers = b;
@@ -242,10 +247,13 @@ void Snake::processPacket(sf::Packet& packet) {
             rollBack(serverPlayers);
         }*/
 
-		
-
-
 		players = serverPlayers;
+        for (size_t i = 0; i < players.size(); ++i) {
+            auto& ppoints = players[i].getPoints();
+            for (size_t j = 0; j < ppoints.size(); ++j) {
+                map.setTile(ppoints[j], players[i].id + PLAYER);
+            }
+        }
 
 
         /*for (size_t i = 0; i < gameStateVector.size(); i++) {

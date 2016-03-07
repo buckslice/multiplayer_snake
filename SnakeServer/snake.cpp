@@ -118,7 +118,8 @@ void Snake::checkNewConnections() {
 }
 
 void Snake::checkClientMessages() {
-    clientTurned = false;
+    //clientTurned = false;
+    clientTurned = true;
     // iterate over each connected client and check for received messages
     // skip last element of clients since that is an open socket waiting for a new connection
     for (size_t i = 0, len = clients.size() - 1; i < len; ++i) {
@@ -165,8 +166,14 @@ void Snake::processPacket(sf::Packet& packet, int index) {
     sf::Uint8 b;
     packet >> b;
     if (b == 0) {           // input update from client
+        unsigned int packetTime;
+        packet >> packetTime;
         packet >> players[index].inone;
         packet >> players[index].intwo;
+        std::cout << players[index].inone << " " << players[index].intwo << " ";
+        if (index == 1) {
+            std::cout << std::endl;
+        }
         clientTurned = true;
         //std::cout << players[index].inone << std::endl;
     } else if (b == 1) {    // any sort of string message from client
@@ -331,9 +338,9 @@ void Snake::gameTick() {
 
             foodPos = map.spawnRandom(FOOD);
         } else {    // hit wall or part of a snake so this player dies!
-            std::cout << mv << std::endl;
-            std::cout << p.inone << std::endl;
-            std::cout << p.intwo << std::endl;
+            //std::cout << mv << std::endl;
+            //std::cout << p.inone << std::endl;
+            //std::cout << p.intwo << std::endl;
 
             p.dead = true;
         }
