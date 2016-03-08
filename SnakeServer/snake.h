@@ -12,17 +12,17 @@
 #include "player.h"
 
 struct GameState {
-    unsigned int tickTime;
+    unsigned int gameFrame;
     std::vector<Player> playerVector;
     // should add food into this too
 
-    GameState(unsigned int time, std::vector<Player>& players) {
-        tickTime = time;
+    GameState(unsigned int frame, std::vector<Player>& players) {
+        gameFrame = frame;
         playerVector = players;
     }
 
     friend bool operator==(const GameState& g1, const GameState& g2) {
-        if (g1.tickTime != g2.tickTime) {
+        if (g1.gameFrame != g2.gameFrame) {
             return false;
         }
         for (size_t i = 0; i < g1.playerVector.size(); i++) {
@@ -55,7 +55,7 @@ public:
     const int WIDTH = 1000;
     const int HEIGHT = 600;
 
-    const float TILE = 25.0f;   // size of each tile in pixels
+    const float TILE = 10.0f;   // size of each tile in pixels
 
 private:
     sf::RenderWindow* window;
@@ -86,7 +86,9 @@ private:
 
     unsigned latestTick;
     unsigned gameStartTime = -1;
-    const unsigned msPerTick = 100;
+    const unsigned msPerTick = 500;
+    unsigned gameFrame = 0;
+    bool gameRunning = false;
 
     void gameTick();    // progresses state of game by one game tick
 
@@ -106,10 +108,10 @@ private:
 
     std::vector<GameState> previousStates;
     unsigned receivedInputs = 0;
-    unsigned earliestInputTime;
     // stores inputs from last couple frames for each player
     std::vector<std::unordered_map<unsigned, PlayerInput>> inputBuffer;
-    std::vector<unsigned int> latestInputTimes;
+    unsigned earliestFrame = 0;
+    unsigned startGameFrame = 0;
 
     void resimulateGameToPresentState();
 

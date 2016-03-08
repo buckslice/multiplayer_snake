@@ -74,8 +74,8 @@ void Snake::init() {
     text.setCharacterSize(30);
 
     // set up map
-    map = Map((int)(WIDTH / TILE - 8), (int)(HEIGHT / TILE) - 1);
-    map.pos = { 0,(int)TILE };
+    map = Map((int)(WIDTH / TILE - 20), (int)(HEIGHT / TILE) - 3);
+    map.pos = { 0,(int)TILE*3 };
     map.generate();
 
 }
@@ -93,6 +93,7 @@ void Snake::gameTick() {
         }
     }
     gameFrame++;
+    std::cout << gameFrame << std::endl;
 }
 
 void Snake::start() {
@@ -189,13 +190,14 @@ void Snake::processPacket(sf::Packet& packet) {
             gameStartTime = timeSinceEpochMillis();
         }
         // check to see if server state is newer than current server state
-        unsigned int updateTime;
-        packet >> updateTime;
-        // dont update if its an older update
-        if (updateTime <= lastServerUpdate) {
+        unsigned int curFrame;
+        packet >> curFrame;
+        // dont update if it from an older server update
+        if (curFrame <= serverFrame) {
             return;
         }
-        lastServerUpdate = updateTime;
+        serverFrame = curFrame;
+        gameFrame = serverFrame;
 
         packet >> b;
         int numPlayers = b;

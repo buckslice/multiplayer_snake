@@ -15,7 +15,7 @@ public:
 
     const int WIDTH = 1000;
     const int HEIGHT = 600;
-    const float TILE = 25.0f;
+    const float TILE = 10.0f;
 
 private:
     sf::RenderWindow* window;
@@ -30,13 +30,13 @@ private:
     std::vector<Player> players;
     //unsigned int clientStateID = -1;			// Counter for current gamestate
     //unsigned int serverStateID;
-    unsigned lastServerUpdate;
+    unsigned serverFrame;
 
     bool gameRunning = false;
-    unsigned clientFrame = 0;
+    unsigned gameFrame = 0;
     unsigned latestTick;
     unsigned gameStartTime;
-    const unsigned msPerTick = 100;
+    const unsigned msPerTick = 500;
 
     std::string titleText;
     std::string pingText;
