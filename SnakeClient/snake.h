@@ -17,11 +17,6 @@ public:
     const int HEIGHT = 600;
     const float TILE = 25.0f;
 
-    // tile IDs
-    static const int GROUND = 0;
-    static const int WALL = 1;
-    static const int FOOD = 2;
-    static const int PLAYER = 3;
 private:
     sf::RenderWindow* window;
 
@@ -33,11 +28,13 @@ private:
     // will be used as a holder for scores
     // and when getting input say players[playerIndex].getInput()
     std::vector<Player> players;
-    unsigned int clientStateID = -1;			// Counter for current gamestate
-    unsigned int serverStateID;
+    //unsigned int clientStateID = -1;			// Counter for current gamestate
+    //unsigned int serverStateID;
+    unsigned lastServerUpdate;
 
     bool gameRunning = false;
-    unsigned lastTick;
+    unsigned clientFrame = 0;
+    unsigned latestTick;
     unsigned gameStartTime;
     const unsigned msPerTick = 100;
 
@@ -65,9 +62,7 @@ private:
     bool checkServerMessages();
     void processPacket(sf::Packet& packet);
 
-
     void render();
-    void generateVertices(sf::VertexArray& verts);
 
     unsigned timeSinceEpochMillis();
 

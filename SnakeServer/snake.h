@@ -10,20 +10,19 @@
 #include <random>
 #include "map.h"
 #include "player.h"
-#include <unordered_map>
 
 struct GameState {
-    unsigned int gameFrame;
+    unsigned int tickTime;
     std::vector<Player> playerVector;
     // should add food into this too
 
-    GameState(unsigned int id, std::vector<Player>& players) {
-        gameFrame = id;
+    GameState(unsigned int time, std::vector<Player>& players) {
+        tickTime = time;
         playerVector = players;
     }
 
     friend bool operator==(const GameState& g1, const GameState& g2) {
-        if (g1.gameFrame != g2.gameFrame) {
+        if (g1.tickTime != g2.tickTime) {
             return false;
         }
         for (size_t i = 0; i < g1.playerVector.size(); i++) {
@@ -47,11 +46,6 @@ struct DelayedPacket {
     }
 };
 
-struct PlayerInput {
-    point inone;
-    point intwo;
-};
-
 class Snake {
 public:
     Snake();
@@ -63,11 +57,6 @@ public:
 
     const float TILE = 25.0f;   // size of each tile in pixels
 
-    // tile IDs
-    static const int GROUND = 0;
-    static const int WALL = 1;
-    static const int FOOD = 2;
-    static const int PLAYER = 3;
 private:
     sf::RenderWindow* window;
 
@@ -93,11 +82,11 @@ private:
     void checkClientMessages(); // checks messages from client sockets
     void processPacket(sf::Packet& packet, int index);  // processes a packet from client at index
 
-    int winner; // current state of game (0 means game still going, -1 is draw, > 0 means player n has won)
-    bool gameRunning = false;  
-    float gameTime = -1000.0f;     // current game time in seconds
-    unsigned serverFrame = -1;
-    const float tickTime = 0.1f;  // defines how quickly game moves // should slow down when testing
+    int winner = 0; // current state of game (0 means game still going, -1 is draw, > 0 means player n has won)
+
+    unsigned latestTick;
+    unsigned gameStartTime = -1;
+    const unsigned msPerTick = 100;
 
     void gameTick();    // progresses state of game by one game tick
 
@@ -116,10 +105,12 @@ private:
     std::vector<DelayedPacket> delayReceivedList;
 
     std::vector<GameState> previousStates;
-    std::vector<std::unordered_map<unsigned, PlayerInput>> inputs;
     unsigned receivedInputs = 0;
-    unsigned oldestFrame = -1;
-    unsigned lastGameStartTime;
+    unsigned earliestInputTime;
+    // stores inputs from last couple frames for each player
+    std::vector<std::unordered_map<unsigned, PlayerInput>> inputBuffer;
+    std::vector<unsigned int> latestInputTimes;
+
     void resimulateGameToPresentState();
 
     std::vector<point> clientDelays;
@@ -128,11 +119,10 @@ private:
     std::mt19937 rng;    
 
     int getWinner();    // sets winner
-    void startGame(float delay);    // resets game to start state with a given delay
+    void resetGame();    // resets game to start state
 
     std::string getTitle(); // figures out the title from gametime and winner
     void render();  // draws game to window
-    void generateVertices(sf::VertexArray& verts); // builds vertex array from map data
 
     unsigned timeSinceEpochMillis();
 

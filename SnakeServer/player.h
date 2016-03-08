@@ -8,6 +8,12 @@
 #include "SFML/Graphics.hpp"
 #include "point.h"
 #include <vector>
+#include <unordered_map>
+
+struct PlayerInput {
+    point inone;
+    point intwo;
+};
 
 class Player {
 public:
@@ -15,10 +21,9 @@ public:
 
     point getPos();
     std::vector<point>& getPoints();
-    point getMove();    // calculates dir based on inputs
+    point getMove();
 
     point move();
-    point dir, inone, intwo;
 
     void spawn(int x, int y, int dx, int dy);
 
@@ -26,12 +31,12 @@ public:
 
     friend bool operator==(const Player& p1, const Player& p2);
 
+    point dir, inone, intwo;
     bool dead;
     int id;
     int score;
     std::string playerName;
 
-    static sf::Color getColorFromID(int id);
 private:
     std::vector<point> points;
     int growth;

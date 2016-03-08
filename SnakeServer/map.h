@@ -7,6 +7,7 @@
 #pragma once
 #include <vector>
 #include "point.h"
+#include <SFML/Graphics.hpp>
 
 class Map {
 public:
@@ -23,6 +24,8 @@ public:
     // generates an empty board
     void generate();
 
+    void generateVertices(sf::VertexArray& verts, float tileSize);
+
     // returns where it spawned it
     point spawnRandom(int id);
 
@@ -30,6 +33,14 @@ public:
     int getH();
 
     point pos; // offset of map origin
+
+    // tile IDs
+    static const int GROUND = 0;
+    static const int WALL = 1;
+    static const int FOOD = 2;
+    static const int PLAYER = 3;
+
+    static sf::Color getColorFromID(int id);
 
 private:
     std::vector<int> map;

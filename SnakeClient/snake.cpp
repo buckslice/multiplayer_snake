@@ -58,8 +58,6 @@ void Snake::init() {
     }
     socket.setBlocking(false);
 
-
-
     // build window
     sf::ContextSettings settings;
     settings.depthBits = 24;
@@ -90,11 +88,11 @@ void Snake::gameTick() {
         point mv = p.getMove();
         if (map.isWalkable(mv.x, mv.y)) {   // valid move
             point oldend = p.move();
-            map.setTile(oldend, GROUND);
-            map.setTile(p.getPos(), p.id + PLAYER);
+            map.setTile(oldend, Map::GROUND);
+            map.setTile(p.getPos(), p.id + Map::PLAYER);
         }
     }
-    clientStateID++;
+    gameFrame++;
 }
 
 void Snake::start() {
@@ -130,31 +128,26 @@ void Snake::start() {
         // make sure index is valid and window is focused	
         if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size()) && window->hasFocus()) {
             Player& myp = players[playerIndex];
-            shouldSendInput = shouldSendInput || myp.checkInput();
-        }
 
+            if (myp.checkInput()) {
+                sf::Packet packet;
+                packet << (sf::Uint8) 0;
+                packet << gameFrame;
+                packet << myp.inone;
+                packet << myp.intwo;
+                socket.send(packet);
+            }
+
+        }
 
         if (gameRunning) {
             unsigned curTick = timeSinceEpochMillis() / msPerTick;
             // if enough time has passed then do a game tick
-            if (curTick > lastTick) {
-                lastTick = curTick;
-
-                if (shouldSendInput) {
-                    Player& myp = players[playerIndex];
-                    sf::Packet packet;
-                    packet << (sf::Uint8) 0;
-                    packet << clientStateID;
-                    packet << myp.inone;
-                    packet << myp.intwo;
-                    socket.send(packet);
-                    shouldSendInput = false;
-                }
-
-                gameTick();
+            if (curTick > latestTick) {
+                latestTick = curTick;
+                gameTick(); // purely for extrapolation
             }
         }
-
 
         // renders the board and limits framerate
         render();
@@ -196,13 +189,13 @@ void Snake::processPacket(sf::Packet& packet) {
             gameStartTime = timeSinceEpochMillis();
         }
         // check to see if server state is newer than current server state
-        unsigned int newServerStateID;
-        packet >> newServerStateID;
-        if (newServerStateID <= serverStateID) {
+        unsigned int updateTime;
+        packet >> updateTime;
+        // dont update if its an older update
+        if (updateTime <= lastServerUpdate) {
             return;
         }
-        serverStateID = newServerStateID;
-        clientStateID = serverStateID;
+        lastServerUpdate = updateTime;
 
         packet >> b;
         int numPlayers = b;
@@ -229,20 +222,20 @@ void Snake::processPacket(sf::Packet& packet) {
             serverPlayers.push_back(player);
         }
         packet >> foodPos;
-        map.generate();
-        map.setTile(foodPos, FOOD);
-
-        packet >> b;
-        playerIndex = b;
-
         // update local state to server state
+        map.generate();
+        map.setTile(foodPos, Map::FOOD);
         players = serverPlayers;
         for (size_t i = 0; i < players.size(); ++i) {
             auto& ppoints = players[i].getPoints();
             for (size_t j = 0; j < ppoints.size(); ++j) {
-                map.setTile(ppoints[j], players[i].id + PLAYER);
+                map.setTile(ppoints[j], players[i].id + Map::PLAYER);
             }
         }
+
+        // set playerIndex
+        packet >> b;
+        playerIndex = b;
 
     } else if (type == 1) { // update title text
         packet >> titleText;
@@ -270,7 +263,7 @@ void Snake::render() {
     sf::VertexArray verts;
     verts.setPrimitiveType(sf::PrimitiveType::Quads);
 
-    generateVertices(verts);
+    map.generateVertices(verts, TILE);
 
     window->draw(verts);
 
@@ -282,8 +275,7 @@ void Snake::render() {
         Player& p = players[i];
         oss << p.playerName << " : " << p.score << " ";
         text.setString(oss.str());
-        sf::Color c = Player::getColorFromID(p.id);
-        text.setColor(c);
+        text.setColor(Map::getColorFromID(p.id + Map::PLAYER));
 
         text.setPosition(sf::Vector2f(800.0f, i * 50.0f + 50.0f));
 
@@ -325,42 +317,6 @@ void Snake::render() {
 
     // swap buffers
     window->display();
-}
-
-// generates a vertex array from map data
-void Snake::generateVertices(sf::VertexArray& verts) {
-    for (int y = 0; y < map.getH(); ++y) {
-        for (int x = 0; x < map.getW(); ++x) {
-            int id = map.getTile(x, y);
-
-            float x0 = x * TILE + map.pos.x;
-            float y0 = y * TILE + map.pos.y;
-            float x1 = (x + 1) * TILE + map.pos.x;
-            float y1 = (y + 1) * TILE + map.pos.y;
-
-            sf::Color color;
-            switch (id) {
-            case GROUND:
-                color = sf::Color(51, 77, 77);
-                break;
-            case WALL:
-                color = sf::Color(12, 26, 51);
-                break;
-            case FOOD:
-                color = sf::Color(0, 255, 0);
-                break;
-
-            default:
-                color = Player::getColorFromID(id - PLAYER);
-                break;
-            }
-
-            verts.append(sf::Vertex(sf::Vector2f(x0, y0), color));
-            verts.append(sf::Vertex(sf::Vector2f(x1, y0), color));
-            verts.append(sf::Vertex(sf::Vector2f(x1, y1), color));
-            verts.append(sf::Vertex(sf::Vector2f(x0, y1), color));
-        }
-    }
 }
 
 int main() {

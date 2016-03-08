@@ -64,18 +64,6 @@ point Player::getMove() {
     return points[0] + dir;
 }
 
-
-sf::Color Player::getColorFromID(int id) {
-    switch (id) {
-    case 0:
-        return sf::Color(255, 127, 51);
-    case 1:
-        return sf::Color(255, 255, 51);
-    default:
-        return sf::Color(255, 0, 255);
-    }
-}
-
 bool operator==(const Player& p1, const Player& p2) {
     if ((p1.points.size() != p2.points.size()) || !(p1.dir == p2.dir) || !(p1.inone == p2.inone) || !(p1.intwo == p2.intwo)) {
         return false;

@@ -17,9 +17,9 @@ public:
     std::vector<point>& getPoints();
     point getMove();
 
-    bool checkInput();
-    point move();
+    bool checkInput();  // clientside only
 
+    point move();
     point dir, inone, intwo;
 
     void spawn(int x, int y, int dx, int dy);
@@ -33,7 +33,6 @@ public:
     int score;
 	std::string playerName;
 
-    static sf::Color Player::getColorFromID(int id);
 private:
     std::vector<point> points;
     int growth;

@@ -60,3 +60,44 @@ void Map::generate() {
         }
     }
 }
+
+// generates a vertex array from map data
+void Map::generateVertices(sf::VertexArray& verts, float tileSize) {
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int id = getTile(x, y);
+
+            float x0 = x * tileSize + pos.x;
+            float y0 = y * tileSize + pos.y;
+            float x1 = (x + 1) * tileSize + pos.x;
+            float y1 = (y + 1) * tileSize + pos.y;
+
+            sf::Color color = getColorFromID(id);
+
+            verts.append(sf::Vertex(sf::Vector2f(x0, y0), color));
+            verts.append(sf::Vertex(sf::Vector2f(x1, y0), color));
+            verts.append(sf::Vertex(sf::Vector2f(x1, y1), color));
+            verts.append(sf::Vertex(sf::Vector2f(x0, y1), color));
+        }
+    }
+}
+
+sf::Color Map::getColorFromID(int id) {
+    switch (id) {
+    case GROUND:
+        return sf::Color(51, 77, 77);
+    case WALL:
+        return sf::Color(12, 26, 51);
+    case FOOD:
+        return sf::Color(0, 255, 0);
+    default:
+        switch (id - PLAYER) {
+        case 0:
+            return sf::Color(255, 127, 51);
+        case 1:
+            return sf::Color(255, 255, 51);
+        default:
+            return sf::Color(255, 0, 255);
+        }
+    }
+}
