@@ -8,12 +8,6 @@
 #include "SFML/Graphics.hpp"
 #include "point.h"
 #include <vector>
-#include <unordered_map>
-
-struct PlayerInput {
-    point inone;
-    point intwo;
-};
 
 class Player {
 public:
@@ -21,8 +15,8 @@ public:
 
     point getPos();
     std::vector<point>& getPoints();
-    point getMove();
 
+    // moves player one step in their current direction
     point move();
 
     void spawn(int x, int y, int dx, int dy);
@@ -31,7 +25,7 @@ public:
 
     friend bool operator==(const Player& p1, const Player& p2);
 
-    point dir, inone, intwo;
+    point dir;
     bool dead;
     int id;
     int score;

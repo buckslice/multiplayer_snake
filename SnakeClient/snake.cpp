@@ -75,7 +75,7 @@ void Snake::init() {
 
     // set up map
     map = Map((int)(WIDTH / TILE - 20), (int)(HEIGHT / TILE) - 3);
-    map.pos = { 0,(int)TILE*3 };
+    map.pos = { 0,(int)TILE * 3 };
     map.generate();
 
 }
@@ -85,7 +85,7 @@ void Snake::gameTick() {
     for (size_t i = 0; i < players.size(); ++i) {
         // figure out dir
         Player& p = players[i];
-        point mv = p.getMove();
+        point mv = p.getPos() + p.dir;
         if (map.isWalkable(mv.x, mv.y)) {   // valid move
             point oldend = p.move();
             map.setTile(oldend, Map::GROUND);
@@ -94,6 +94,11 @@ void Snake::gameTick() {
     }
     gameFrame++;
     std::cout << gameFrame << std::endl;
+    pastStates.push_back(GameState(gameFrame, players));
+    while (pastStates.size() > pastStateSize) {
+        pastStates.erase(pastStates.begin());
+    }
+
 }
 
 void Snake::start() {
@@ -126,19 +131,10 @@ void Snake::start() {
             socket.send(pingPacket);
         }
 
-        // make sure index is valid and window is focused	
+        // check every frame for new inputs
         if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size()) && window->hasFocus()) {
             Player& myp = players[playerIndex];
-
-            if (myp.checkInput()) {
-                sf::Packet packet;
-                packet << (sf::Uint8) 0;
-                packet << gameFrame;
-                packet << myp.inone;
-                packet << myp.intwo;
-                socket.send(packet);
-            }
-
+            checkInput(myp.dir);
         }
 
         if (gameRunning) {
@@ -146,7 +142,20 @@ void Snake::start() {
             // if enough time has passed then do a game tick
             if (curTick > latestTick) {
                 latestTick = curTick;
-                gameTick(); // purely for extrapolation
+
+                // send player direction if it has changed
+                if (playerIndex >= 0 && playerIndex < static_cast<int>(players.size())) {
+                    Player& myp = players[playerIndex];
+                    if (checkDirChange(myp.dir)) {
+                        sf::Packet packet;
+                        packet << (sf::Uint8) 0;
+                        packet << gameFrame;
+                        packet << myp.dir;
+                        socket.send(packet);
+                    }
+                }
+
+                gameTick();
             }
         }
 
@@ -190,14 +199,14 @@ void Snake::processPacket(sf::Packet& packet) {
             gameStartTime = timeSinceEpochMillis();
         }
         // check to see if server state is newer than current server state
-        unsigned int curFrame;
-        packet >> curFrame;
+        unsigned int frame;
+        packet >> frame;
         // dont update if it from an older server update
-        if (curFrame <= serverFrame) {
+        if (frame <= serverFrame) {
             return;
         }
-        serverFrame = curFrame;
-        gameFrame = serverFrame;
+        serverFrame = frame;
+        //gameFrame = serverFrame;
 
         packet >> b;
         int numPlayers = b;
@@ -211,8 +220,6 @@ void Snake::processPacket(sf::Packet& packet) {
             int playerScore = b;
             player.score = playerScore;
             packet >> player.dir;
-            packet >> player.inone;
-            packet >> player.intwo;
             packet >> b;
             int numPoints = b;
             auto& points = player.getPoints();
@@ -224,14 +231,34 @@ void Snake::processPacket(sf::Packet& packet) {
             serverPlayers.push_back(player);
         }
         packet >> foodPos;
-        // update local state to server state
-        map.generate();
-        map.setTile(foodPos, Map::FOOD);
-        players = serverPlayers;
-        for (size_t i = 0; i < players.size(); ++i) {
-            auto& ppoints = players[i].getPoints();
-            for (size_t j = 0; j < ppoints.size(); ++j) {
-                map.setTile(ppoints[j], players[i].id + Map::PLAYER);
+
+        bool shouldRollback = false;
+        for (size_t i = 0, len = pastStates.size(); i < len; ++i) {
+            if (serverFrame == pastStates[i].gameFrame) {
+                if (!(GameState(serverFrame, serverPlayers) == pastStates[i])) {
+                    // if mismatch between client predicted and server gamestate
+                    shouldRollback = true;
+                }
+                break;
+            }
+            // if no server state was found in backup then probably really out of sync
+            std::cout << "weow too fast" << std::endl;
+            shouldRollback = true;
+            break;
+        }
+
+        if (shouldRollback) {
+            std::cout << "rollback!!! going back to " << serverFrame << " from " << gameFrame << std::endl;
+            // force update local state to server state
+            gameFrame = serverFrame;
+            map.generate();
+            map.setTile(foodPos, Map::FOOD);
+            players = serverPlayers;
+            for (size_t i = 0; i < players.size(); ++i) {
+                auto& ppoints = players[i].getPoints();
+                for (size_t j = 0; j < ppoints.size(); ++j) {
+                    map.setTile(ppoints[j], players[i].id + Map::PLAYER);
+                }
             }
         }
 
@@ -240,6 +267,12 @@ void Snake::processPacket(sf::Packet& packet) {
         playerIndex = b;
 
     } else if (type == 1) { // update title text
+        unsigned version;
+        packet >> version;
+        if (version <= latestTitleVersion) {
+            return;
+        }
+        latestTitleVersion = version;
         packet >> titleText;
     } else if (type == 2) {
         pingVector.push_back(timeSinceEpochMillis() - pingTime);
@@ -309,7 +342,6 @@ void Snake::render() {
     text.setPosition(sf::Vector2f(0.0f, 0.0f));
     window->draw(text);
 
-
     // set title message text
     text.setColor(sf::Color(200, 255, 255));
     text.setString(titleText);
@@ -319,6 +351,47 @@ void Snake::render() {
 
     // swap buffers
     window->display();
+}
+
+bool Snake::checkDirChange(point& dir) {
+    if (inone.x != 0 || inone.y != 0) {
+        dir = inone;
+        inone = intwo;
+        intwo = { 0,0 };
+        return true;
+    }
+    return false;
+}
+
+void Snake::checkInput(point dir) {
+    if (Input::justPressed(sf::Keyboard::A) || Input::justPressed(sf::Keyboard::Left)) {
+        if (dir.x == 0) {
+            inone = { -1,0 };
+        } else if (inone.y != 0) {
+            intwo = { -1,0 };
+        }
+    }
+    if (Input::justPressed(sf::Keyboard::D) || Input::justPressed(sf::Keyboard::Right)) {
+        if (dir.x == 0) {
+            inone = { 1,0 };
+        } else if (inone.y != 0) {
+            intwo = { 1,0 };
+        }
+    }
+    if (Input::justPressed(sf::Keyboard::S) || Input::justPressed(sf::Keyboard::Down)) {
+        if (dir.y == 0) {
+            inone = { 0,1 };
+        } else if (inone.x != 0) {
+            intwo = { 0,1 };
+        }
+    }
+    if (Input::justPressed(sf::Keyboard::W) || Input::justPressed(sf::Keyboard::Up)) {
+        if (dir.y == 0) {
+            inone = { 0,-1 };
+        } else if (inone.x != 0) {
+            intwo = { 0,-1 };
+        }
+    }
 }
 
 int main() {

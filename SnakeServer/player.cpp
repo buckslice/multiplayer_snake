@@ -8,8 +8,6 @@
 
 Player::Player(int id) : id{ id } {
     points.clear();
-    inone = { 0,0 };
-    intwo = { 0,0 };
     growth = 0;
     score = 0;
     dead = false;
@@ -19,8 +17,6 @@ void Player::spawn(int x, int y, int dx, int dy) {
     points.clear();
     points.push_back({ x,y });
     dir = { dx,dy };
-    inone = { 0,0 };
-    intwo = { 0,0 };
     growth = 0;
     score = 0;
     dead = false;
@@ -55,20 +51,11 @@ std::vector<point>& Player::getPoints() {
     return points;
 }
 
-point Player::getMove() {
-    if (inone.x != 0 || inone.y != 0) {
-        dir = inone;
-        inone = intwo;
-        intwo = { 0,0 };
-    }
-    return points[0] + dir;
-}
-
 bool operator==(const Player& p1, const Player& p2) {
-    if ((p1.points.size() != p2.points.size()) || !(p1.dir == p2.dir) || !(p1.inone == p2.inone) || !(p1.intwo == p2.intwo)) {
+    if ((p1.points.size() != p2.points.size()) || !(p1.dir == p2.dir)) {
         return false;
     }
-    for (size_t i = 0; p1.points.size(); i++) {
+    for (size_t i = 0; i < p1.points.size(); i++) {
         if (!(p1.points[i] == p2.points[i]))
             return false;
     }

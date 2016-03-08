@@ -10,6 +10,7 @@
 #include <random>
 #include "map.h"
 #include "player.h"
+#include <unordered_map>
 
 struct GameState {
     unsigned int gameFrame;
@@ -22,7 +23,7 @@ struct GameState {
     }
 
     friend bool operator==(const GameState& g1, const GameState& g2) {
-        if (g1.gameFrame != g2.gameFrame) {
+        if (g1.gameFrame != g2.gameFrame || g1.playerVector.size() != g2.playerVector.size()) {
             return false;
         }
         for (size_t i = 0; i < g1.playerVector.size(); i++) {
@@ -106,24 +107,24 @@ private:
     std::vector<DelayedPacket> delaySendList;
     std::vector<DelayedPacket> delayReceivedList;
 
-    std::vector<GameState> previousStates;
+    const unsigned pastStateSize = 20;
+    std::vector<GameState> pastStates;
     unsigned receivedInputs = 0;
-    // stores inputs from last couple frames for each player
-    std::vector<std::unordered_map<unsigned, PlayerInput>> inputBuffer;
+    // stores inputs (in form of desired direction) from last couple frames for each player
+    std::vector<std::unordered_map<unsigned, point>> inputBuffer;
     unsigned earliestFrame = 0;
-    unsigned startGameFrame = 0;
 
     void resimulateGameToPresentState();
 
-    std::vector<point> clientDelays;
-    unsigned getDelay(int index); 
-
-    std::mt19937 rng;    
+    std::vector<point> clientDelays;    // defines for each client the corresponding packet delay they should expect
+    unsigned getDelay(int index);       // returns the delay for the corresponding client
+    std::mt19937 rng;                   // random generator for packet delay
 
     int getWinner();    // sets winner
     void resetGame();    // resets game to start state
 
-    std::string getTitle(); // figures out the title from gametime and winner
+    std::string getTitle();     // figures out the title from gametime and winner
+    unsigned titleVersion = 0;  // so players can verify and ignore out of date title updates
     void render();  // draws game to window
 
     unsigned timeSinceEpochMillis();

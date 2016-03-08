@@ -9,6 +9,29 @@
 #include "player.h"
 #include <SFML/Network.hpp>
 
+struct GameState {
+    unsigned int gameFrame;
+    std::vector<Player> playerVector;
+    // should add food into this too
+
+    GameState(unsigned int frame, std::vector<Player>& players) {
+        gameFrame = frame;
+        playerVector = players;
+    }
+
+    friend bool operator==(const GameState& g1, const GameState& g2) {
+        if (g1.gameFrame != g2.gameFrame || g1.playerVector.size() != g2.playerVector.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < g1.playerVector.size(); i++) {
+            if (!(g1.playerVector[i] == g2.playerVector[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
 class Snake {
 public:
     Snake();
@@ -45,14 +68,15 @@ private:
     bool pingWait = false;
     unsigned pingTime;
     std::vector<unsigned> pingVector;
-
-    bool shouldSendInput = false;
+    const unsigned pastStateSize = 20;
+    std::vector<GameState> pastStates;
 
     Map map;
     point foodPos;
 
     sf::Font font;
     sf::Text text;
+    unsigned latestTitleVersion = 0;
 
     void init();
     void gameTick();    // progresses state of game by one game tick
@@ -67,5 +91,11 @@ private:
     unsigned timeSinceEpochMillis();
 
     bool hasConnectedBefore = false;
+
+    // check input for your snake
+    void checkInput(point dir);
+    bool checkDirChange(point& dir);
+    point inone;
+    point intwo;
 
 };

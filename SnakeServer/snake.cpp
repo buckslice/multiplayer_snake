@@ -89,6 +89,7 @@ void Snake::checkNewConnections() {
         sf::TcpSocket* client = new sf::TcpSocket();
         client->setBlocking(false);
         clients.push_back(client);
+        
     }
 
     // if successfully get new connection then add player to list
@@ -169,16 +170,18 @@ void Snake::processPacket(sf::Packet& packet, int index) {
         unsigned clientFrame;   // what frame client made input
         packet >> clientFrame;
 
-        if (clientFrame < earliestFrame) {
-            earliestFrame = clientFrame;
-        }
-        receivedInputs++;
+        //if (clientFrame < earliestFrame) {
+        //    earliestFrame = clientFrame;
+        //}
+        //receivedInputs++;
 
-        // extract input and put onto input list
-        PlayerInput pi;
-        packet >> pi.inone;
-        packet >> pi.intwo;
-        inputBuffer[index][clientFrame] = pi;
+        //// extract input and put onto input list
+        //PlayerInput pi;
+        //packet >> pi.inone;
+        //packet >> pi.intwo;
+        //inputBuffer[index][clientFrame] = pi;
+
+        packet >> players[index].dir;
 
     } else if (b == 1) {    // any sort of string message from client
         std::string s;
@@ -230,10 +233,10 @@ void Snake::broadcastGameState() {
     // game state id
     // number of players
     // for each player
-        // player id
         // player name
+        // player id
         // player score
-        // player dir, and inputs
+        // player dir
         // length of snake
         // points in snake
     // food pos
@@ -250,8 +253,6 @@ void Snake::broadcastGameState() {
         packet << player.playerName;
         packet << (sf::Uint8)player.score;
         packet << player.dir;
-        packet << player.inone;
-        packet << player.intwo;
 
         auto& points = player.getPoints();
         packet << (sf::Uint8) points.size();
@@ -331,7 +332,7 @@ void Snake::gameTick() {
     for (size_t i = 0; i < players.size(); ++i) {
         // figure out dir
         Player& p = players[i];
-        point mv = p.getMove();
+        point mv = p.getPos() + p.dir;
         if (map.isWalkable(mv.x, mv.y)) {   // valid move
             point oldend = p.move();
             map.setTile(oldend, Map::GROUND);
@@ -353,7 +354,7 @@ void Snake::gameTick() {
 
 void Snake::resimulateGameToPresentState() {
     // get number of previous states
-    int numPrevious = previousStates.size();
+    int numPrevious = pastStates.size();
     // if no previous states then return because no data to retest from
     if (numPrevious <= 0) {
         return;
@@ -367,8 +368,8 @@ void Snake::resimulateGameToPresentState() {
     }
 
     // reset game back to a previous state
-    unsigned simFrame = previousStates[index].gameFrame;
-    players = previousStates[index].playerVector;
+    unsigned simFrame = pastStates[index].gameFrame;
+    players = pastStates[index].playerVector;
     map.generate();
     map.setTile(foodPos, Map::FOOD);
     for (size_t i = 0; i < players.size(); ++i) {
@@ -386,22 +387,17 @@ void Snake::resimulateGameToPresentState() {
         // check for inputs made during this frame
         for (size_t i = 0; i < players.size(); ++i) {
             if (inputBuffer[i].count(simFrame)) { // there was an input made by this player during this frame
-                PlayerInput pi = inputBuffer[i][simFrame];
-                players[i].inone = pi.inone;
-                players[i].intwo = pi.intwo;
+                players[i].dir = inputBuffer[i][simFrame];
             }
         }
 
         // resimulate the gametick
         gameTick();
-        previousStates[++index] = GameState(++simFrame, players);
+        pastStates[++index] = GameState(++simFrame, players);
     }
 
     // reset variables
     receivedInputs = 0;
-    for (size_t i = 0; i < players.size(); ++i) {
-        inputBuffer[i].clear();
-    }
     earliestFrame = -1;
 }
 
@@ -442,6 +438,7 @@ void Snake::start() {
         // send packet to clients to update title message
         sf::Packet titlePacket;
         titlePacket << (sf::Uint8) 1;   // message type
+        titlePacket << titleVersion++;
         titlePacket << getTitle();
         broadcastPacket(titlePacket);
 
@@ -450,19 +447,26 @@ void Snake::start() {
             unsigned curTick = curTime / msPerTick;
             // if enough time has passed then do a game tick
             if (curTick > latestTick) {
-                if (receivedInputs > 0) {
-                    resimulateGameToPresentState();
-                }
+                //if (receivedInputs > 0) {
+                //    resimulateGameToPresentState();
+                //}
 
                 latestTick = curTick;
                 gameTick();
                 gameFrame++;
                 std::cout << gameFrame << std::endl;
 
-                previousStates.push_back(GameState(gameFrame, players));
-                while (previousStates.size() > 20) {
-                    previousStates.erase(previousStates.begin());
+                pastStates.push_back(GameState(gameFrame, players));
+                while (pastStates.size() > pastStateSize) {
+                    pastStates.erase(pastStates.begin());
                 }
+                // should buffer input the same way pastStates are buffered
+                //for (size_t i = 0; i < players.size(); ++i) {
+                //    if (inputBuffer[i].count(gameFrame - pastStateSize) > 0) {
+                //        inputBuffer[i].
+                //    }
+                //    inputBuffer[i].clear();
+                //}
 
                 winner = getWinner();
                 if (winner != 0) {
@@ -488,7 +492,7 @@ void Snake::start() {
 }
 
 void Snake::resetGame() {
-    previousStates.clear();
+    pastStates.clear();
     std::cout << "Starting new game!" << std::endl;
     winner = 0;
 
@@ -544,17 +548,18 @@ int Snake::getWinner() {
 std::string Snake::getTitle() {
     std::ostringstream oss;
     unsigned gameTime = gameStartTime - timeSinceEpochMillis();
-    if (gameTime < 2000) {
+
+    if (gameStartTime == -1) {      // if waiting for players
+        oss << "WAITING...";
+    }else if (gameTime < 1000) {    // if game is over then get ready for next!
+        oss << "GET READY";
+    } else if (gameTime < 2000) {   // if game just ended recently print result
         if (winner < 0) {
             oss << "DRAW!";
         } else {
             oss << "Player " << winner << " wins!";
         }
-    } else if (gameTime < 1000) {
-        oss << "GET READY";
-    } else if (gameStartTime == -1) {
-        oss << "WAITING...";
-    } else {
+    } else {    // game is going!
         oss << "SNAKE!";
     }
     return oss.str();

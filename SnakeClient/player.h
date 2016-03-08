@@ -15,12 +15,9 @@ public:
 
     point getPos();
     std::vector<point>& getPoints();
-    point getMove();
 
-    bool checkInput();  // clientside only
-
+    // moves player one step in their current direction
     point move();
-    point dir, inone, intwo;
 
     void spawn(int x, int y, int dx, int dy);
 
@@ -28,6 +25,7 @@ public:
 
     friend bool operator==(const Player& p1, const Player& p2);
 
+    point dir;
     bool dead;
     int id;
     int score;
