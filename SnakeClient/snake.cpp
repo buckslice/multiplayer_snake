@@ -86,10 +86,17 @@ void Snake::gameTick() {
         // figure out dir
         Player& p = players[i];
         point mv = p.getPos() + p.dir;
+
+        int tile = map.getTile(mv.x, mv.y);
         if (map.isWalkable(mv.x, mv.y)) {   // valid move
             point oldend = p.move();
             map.setTile(oldend, Map::GROUND);
             map.setTile(p.getPos(), p.id + Map::PLAYER);
+
+            if (tile == Map::FOOD) {   // ran into food
+                p.grow(3);
+                p.score++;
+            }
         }
     }
     gameFrame++;
@@ -193,7 +200,6 @@ void Snake::processPacket(sf::Packet& packet) {
         // packet layout defined in server snake.cpp
         // builds local player vector for getting input and score reference
         // will be used later to extrapolate player movement during lag
-
         if (!gameRunning) {
             gameRunning = true;
             gameStartTime = timeSinceEpochMillis();
@@ -201,8 +207,8 @@ void Snake::processPacket(sf::Packet& packet) {
         // check to see if server state is newer than current server state
         unsigned int frame;
         packet >> frame;
-        // dont update if it from an older server update
-        if (frame <= serverFrame) {
+        // dont process rest of packet if it from an older server update
+        if (frame <= serverFrame && frame != 0) {
             return;
         }
         serverFrame = frame;
@@ -232,33 +238,15 @@ void Snake::processPacket(sf::Packet& packet) {
         }
         packet >> foodPos;
 
-        bool shouldRollback = false;
-        for (size_t i = 0, len = pastStates.size(); i < len; ++i) {
-            if (serverFrame == pastStates[i].gameFrame) {
-                if (!(GameState(serverFrame, serverPlayers) == pastStates[i])) {
-                    // if mismatch between client predicted and server gamestate
-                    shouldRollback = true;
-                }
-                break;
-            }
-            // if no server state was found in backup then probably really out of sync
-            std::cout << "weow too fast" << std::endl;
-            shouldRollback = true;
-            break;
-        }
-
-        if (shouldRollback) {
-            std::cout << "rollback!!! going back to " << serverFrame << " from " << gameFrame << std::endl;
-            // force update local state to server state
-            gameFrame = serverFrame;
-            map.generate();
-            map.setTile(foodPos, Map::FOOD);
-            players = serverPlayers;
-            for (size_t i = 0; i < players.size(); ++i) {
-                auto& ppoints = players[i].getPoints();
-                for (size_t j = 0; j < ppoints.size(); ++j) {
-                    map.setTile(ppoints[j], players[i].id + Map::PLAYER);
-                }
+        // force update local state to server state
+        gameFrame = serverFrame;
+        map.generate();
+        map.setTile(foodPos, Map::FOOD);
+        players = serverPlayers;
+        for (size_t i = 0; i < players.size(); ++i) {
+            auto& ppoints = players[i].getPoints();
+            for (size_t j = 0; j < ppoints.size(); ++j) {
+                map.setTile(ppoints[j], players[i].id + Map::PLAYER);
             }
         }
 

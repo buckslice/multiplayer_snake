@@ -53,13 +53,13 @@ private:
     std::vector<Player> players;
     //unsigned int clientStateID = -1;			// Counter for current gamestate
     //unsigned int serverStateID;
-    unsigned serverFrame;
+    unsigned serverFrame = 0;
 
     bool gameRunning = false;
     unsigned gameFrame = 0;
     unsigned latestTick;
     unsigned gameStartTime;
-    const unsigned msPerTick = 500;
+    const unsigned msPerTick = 200;
 
     std::string titleText;
     std::string pingText;

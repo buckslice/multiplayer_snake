@@ -87,8 +87,9 @@ private:
 
     unsigned latestTick;
     unsigned gameStartTime = -1;
-    const unsigned msPerTick = 500;
+    const unsigned msPerTick = 200;
     unsigned gameFrame = 0;
+    unsigned lastGameFrame = 0;
     bool gameRunning = false;
 
     void gameTick();    // progresses state of game by one game tick

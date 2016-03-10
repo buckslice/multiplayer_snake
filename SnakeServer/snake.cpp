@@ -80,7 +80,7 @@ void Snake::init() {
     rng.seed(rd());
 
     clientDelays.push_back(point{ 0, 100 });
-    clientDelays.push_back(point{ 1000, 2000 });
+    clientDelays.push_back(point{ 500, 1000 });
 }
 
 void Snake::checkNewConnections() {
@@ -170,18 +170,13 @@ void Snake::processPacket(sf::Packet& packet, int index) {
         unsigned clientFrame;   // what frame client made input
         packet >> clientFrame;
 
-        //if (clientFrame < earliestFrame) {
-        //    earliestFrame = clientFrame;
-        //}
-        //receivedInputs++;
+        if (clientFrame < earliestFrame) {
+            earliestFrame = clientFrame;
+        }
+        receivedInputs++;
 
-        //// extract input and put onto input list
-        //PlayerInput pi;
-        //packet >> pi.inone;
-        //packet >> pi.intwo;
-        //inputBuffer[index][clientFrame] = pi;
-
-        packet >> players[index].dir;
+        // extract input and put onto input list
+        packet >> inputBuffer[index][clientFrame];
 
     } else if (b == 1) {    // any sort of string message from client
         std::string s;
@@ -333,18 +328,18 @@ void Snake::gameTick() {
         // figure out dir
         Player& p = players[i];
         point mv = p.getPos() + p.dir;
+        int tile = map.getTile(mv.x, mv.y);
         if (map.isWalkable(mv.x, mv.y)) {   // valid move
             point oldend = p.move();
             map.setTile(oldend, Map::GROUND);
             map.setTile(p.getPos(), p.id + Map::PLAYER);
-        } else if (map.getTile(mv.x, mv.y) == Map::FOOD) {   // ran into food
-            point oldend = p.move();
-            map.setTile(oldend, Map::GROUND);
-            map.setTile(p.getPos(), p.id + Map::PLAYER);
-            p.grow(3);
-            p.score++;
 
-            foodPos = map.spawnRandom(Map::FOOD);
+            if (tile == Map::FOOD) {   // ran into food
+                p.grow(3);
+                p.score++;
+
+                foodPos = map.spawnRandom(Map::FOOD);
+            }
         } else {    // hit wall or part of a snake so this player dies!
             //std::cout << p.dir << " " << p.inone << " " << p.intwo << std::endl;
             p.dead = true;
@@ -383,17 +378,17 @@ void Snake::resimulateGameToPresentState() {
     
     // resimulate game up to present point but using the inputs
     // of each player during the frame they made it
-    while (simFrame < gameFrame) {
+    while (simFrame <= gameFrame) {
         // check for inputs made during this frame
         for (size_t i = 0; i < players.size(); ++i) {
-            if (inputBuffer[i].count(simFrame)) { // there was an input made by this player during this frame
+            if (inputBuffer[i].count(simFrame) > 0) { // there was an input made by this player during this frame
                 players[i].dir = inputBuffer[i][simFrame];
             }
         }
 
         // resimulate the gametick
         gameTick();
-        pastStates[++index] = GameState(++simFrame, players);
+        pastStates[index++] = GameState(simFrame++, players);
     }
 
     // reset variables
@@ -444,12 +439,18 @@ void Snake::start() {
 
         unsigned curTime = timeSinceEpochMillis();
         if (curTime > gameStartTime) {
+            if (gameFrame == 0 || gameFrame == lastGameFrame) {
+                broadcastGameState();
+            }
+
             unsigned curTick = curTime / msPerTick;
             // if enough time has passed then do a game tick
             if (curTick > latestTick) {
-                //if (receivedInputs > 0) {
-                //    resimulateGameToPresentState();
-                //}
+                if (receivedInputs > 0) {
+                    resimulateGameToPresentState();
+
+                    broadcastGameState();
+                }
 
                 latestTick = curTick;
                 gameTick();
@@ -461,21 +462,23 @@ void Snake::start() {
                     pastStates.erase(pastStates.begin());
                 }
                 // should buffer input the same way pastStates are buffered
-                //for (size_t i = 0; i < players.size(); ++i) {
-                //    if (inputBuffer[i].count(gameFrame - pastStateSize) > 0) {
-                //        inputBuffer[i].
-                //    }
-                //    inputBuffer[i].clear();
-                //}
+                for (size_t i = 0; i < inputBuffer.size(); ++i) {
+                    int frameToErase = gameFrame - pastStateSize;
+                    if (inputBuffer[i].count(frameToErase) > 0) {
+                        inputBuffer[i].erase(frameToErase);
+                    }
+                    //inputBuffer[i].clear();
+                }
 
                 winner = getWinner();
                 if (winner != 0) {
-                    // game will start again in 2000ms
-                    gameStartTime = curTime + 2000;
+                    // game will start again in 4000ms
+                    gameStartTime = curTime + 4000;
+                    lastGameFrame = gameFrame;
                 }
 
                 // send game state back to clients
-                broadcastGameState();
+                //broadcastGameState();
             }
         } else if (winner != 0 && gameStartTime - curTime < 1000) {
             resetGame();

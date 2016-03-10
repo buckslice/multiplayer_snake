@@ -45,7 +45,8 @@ void Map::setTile(point p, int id) {
 }
 
 bool Map::isWalkable(int x, int y) {
-    return getTile(x, y) == 0;
+    int tile = getTile(x, y);
+    return tile == GROUND || tile == FOOD;
 }
 
 point Map::spawnRandom(int id) {
